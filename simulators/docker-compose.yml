@@ -1,0 +1,24 @@
+services:
+  device_agent:
+    image: spaneng/doover_device_agent:apps
+    network_mode: host
+
+  sample_simulator:
+    build: ./sample
+    network_mode: host
+    restart: unless-stopped
+    depends_on:
+      - device_agent
+    environment:
+      - APP_KEY=sim_app_key
+
+  sample_application:
+    build: ../
+    network_mode: host
+    restart: unless-stopped
+    depends_on:
+      - device_agent
+      - sample_simulator
+    environment:
+      - APP_KEY=test_app_key
+      - CONFIG_FP=/app/simulators/app_config.json

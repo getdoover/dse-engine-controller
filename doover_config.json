@@ -1,0 +1,51 @@
+{
+    "dse_engine_controller": {
+        "name": "dse_engine_controller",
+        "display_name": "dse-engine-controller",
+        "type": "DEV",
+        "visibility": "PUB",
+        "allow_many": true,
+        "description": "Engine monitoring and control",
+        "long_description": "README.md",
+        "depends_on": [],
+        "owner_org_key": "FIX-ME",
+        "image_name": "ghcr.io/getdoover/dse-engine-controller:main",
+        "container_registry_profile_key": "FIX-ME",
+        "build_args": "--platform linux/amd64,linux/arm64",
+        "config_schema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "",
+            "title": "Application Config",
+            "type": "object",
+            "properties": {
+                "digital_outputs_enabled": {
+                    "title": "Digital Outputs Enabled",
+                    "x-name": "digital_outputs_enabled",
+                    "x-hidden": false,
+                    "type": "boolean",
+                    "default": true
+                },
+                "a_funny_message": {
+                    "title": "A Funny Message",
+                    "x-name": "a_funny_message",
+                    "x-hidden": false,
+                    "type": "string"
+                },
+                "simulator_app_key": {
+                    "format": "doover-application",
+                    "title": "Simulator App Key",
+                    "x-name": "simulator_app_key",
+                    "x-hidden": false,
+                    "type": "string",
+                    "description": "The app key for the simulator"
+                }
+            },
+            "additionalElements": true,
+            "required": [
+                "a_funny_message",
+                "simulator_app_key"
+            ]
+        },
+        "organisation_id": "FIX-ME"
+    }
+}
