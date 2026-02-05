@@ -1,35 +1,130 @@
 {
     "dse_engine_controller": {
         "name": "dse_engine_controller",
-        "display_name": "dse-engine-controller",
+        "display_name": "DSE Engine Controller",
         "type": "DEV",
         "visibility": "PUB",
         "allow_many": true,
         "description": "Engine monitoring and control",
         "long_description": "README.md",
         "depends_on": [],
-        "owner_org_key": "FIX-ME",
-        "image_name": "ghcr.io/getdoover/dse-engine-controller:main",
-        "container_registry_profile_key": "FIX-ME",
+        "owner_org_key": "",
+        "image_name": "ghcr.io/getdoover/dse_engine_controller:main",
+        "container_registry_profile_key": "",
         "build_args": "--platform linux/amd64,linux/arm64",
+        "lambda_config": {},
+        "organisation_id": null,
+        "key": null,
+        "owner_org_id": null,
+        "code_repo_id": null,
+        "container_registry_profile_id": null,
+        "repo_branch": "main",
+        "icon_url": "https://images.seeklogo.com/logo-png/27/1/dse-logo-png_seeklogo-271497.png",
+        "staging_config": {},
+        "export_config_command": null,
+        "run_command": null,
+        "lambda_arn": null,
         "config_schema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "$id": "",
             "title": "Application Config",
             "type": "object",
             "properties": {
-                "digital_outputs_enabled": {
-                    "title": "Digital Outputs Enabled",
-                    "x-name": "digital_outputs_enabled",
+                "display_name": {
+                    "title": "Display Name",
+                    "x-name": "display_name",
+                    "x-hidden": false,
+                    "type": "string",
+                    "description": "Name shown in the UI",
+                    "default": "Engine Controller"
+                },
+                "auto_start_enabled": {
+                    "title": "Auto Start Enabled",
+                    "x-name": "auto_start_enabled",
                     "x-hidden": false,
                     "type": "boolean",
-                    "default": true
+                    "description": "Allow automatic engine starting based on conditions",
+                    "default": false
                 },
-                "a_funny_message": {
-                    "title": "A Funny Message",
-                    "x-name": "a_funny_message",
+                "crank_time_(seconds)": {
+                    "title": "Crank Time (seconds)",
+                    "x-name": "crank_time_(seconds)",
                     "x-hidden": false,
-                    "type": "string"
+                    "type": "integer",
+                    "description": "Maximum time to crank before timeout",
+                    "default": 10
+                },
+                "crank_rest_time_(seconds)": {
+                    "title": "Crank Rest Time (seconds)",
+                    "x-name": "crank_rest_time_(seconds)",
+                    "x-hidden": false,
+                    "type": "integer",
+                    "description": "Rest time between crank attempts",
+                    "default": 5
+                },
+                "max_crank_attempts": {
+                    "title": "Max Crank Attempts",
+                    "x-name": "max_crank_attempts",
+                    "x-hidden": false,
+                    "type": "integer",
+                    "description": "Maximum number of crank attempts before failure",
+                    "default": 3
+                },
+                "cooldown_time_(seconds)": {
+                    "title": "Cooldown Time (seconds)",
+                    "x-name": "cooldown_time_(seconds)",
+                    "x-hidden": false,
+                    "type": "integer",
+                    "description": "Engine cooldown period before shutdown",
+                    "default": 60
+                },
+                "low_oil_pressure_(psi)": {
+                    "title": "Low Oil Pressure (PSI)",
+                    "x-name": "low_oil_pressure_(psi)",
+                    "x-hidden": false,
+                    "type": "number",
+                    "description": "Oil pressure threshold for low warning",
+                    "default": 15.0
+                },
+                "high_coolant_temp_(c)": {
+                    "title": "High Coolant Temp (C)",
+                    "x-name": "high_coolant_temp_(c)",
+                    "x-hidden": false,
+                    "type": "number",
+                    "description": "Coolant temperature threshold for high warning",
+                    "default": 95.0
+                },
+                "low_battery_voltage_(v)": {
+                    "title": "Low Battery Voltage (V)",
+                    "x-name": "low_battery_voltage_(v)",
+                    "x-hidden": false,
+                    "type": "number",
+                    "description": "Battery voltage threshold for low warning",
+                    "default": 11.5
+                },
+                "high_battery_voltage_(v)": {
+                    "title": "High Battery Voltage (V)",
+                    "x-name": "high_battery_voltage_(v)",
+                    "x-hidden": false,
+                    "type": "number",
+                    "description": "Battery voltage threshold for high warning",
+                    "default": 14.5
+                },
+                "overspeed_rpm": {
+                    "title": "Overspeed RPM",
+                    "x-name": "overspeed_rpm",
+                    "x-hidden": false,
+                    "type": "integer",
+                    "description": "RPM threshold for overspeed shutdown",
+                    "default": 2000
+                },
+                "underspeed_rpm": {
+                    "title": "Underspeed RPM",
+                    "x-name": "underspeed_rpm",
+                    "x-hidden": false,
+                    "type": "integer",
+                    "description": "RPM threshold for underspeed warning",
+                    "default": 1400
                 },
                 "simulator_app_key": {
                     "format": "doover-application",
@@ -37,15 +132,13 @@
                     "x-name": "simulator_app_key",
                     "x-hidden": false,
                     "type": "string",
-                    "description": "The app key for the simulator"
+                    "description": "App key for engine data simulator (for testing)"
                 }
             },
             "additionalElements": true,
             "required": [
-                "a_funny_message",
                 "simulator_app_key"
             ]
-        },
-        "organisation_id": "FIX-ME"
+        }
     }
 }

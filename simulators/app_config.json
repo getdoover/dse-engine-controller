@@ -1,6 +1,15 @@
 {
+    "display_name": "Test Engine Controller",
     "simulator_app_key": "sim_app_key",
-    "digital_input_count": 1,
-    "digital_output_count": 2,
-    "a_funny_message": "yeeha"
+    "auto_start_enabled": false,
+    "crank_time_(seconds)": 10,
+    "crank_rest_time_(seconds)": 5,
+    "max_crank_attempts": 3,
+    "cooldown_time_(seconds)": 30,
+    "low_oil_pressure_(psi)": 15.0,
+    "high_coolant_temp_(c)": 95.0,
+    "low_battery_voltage_(v)": 11.5,
+    "high_battery_voltage_(v)": 14.5,
+    "overspeed_rpm": 2000,
+    "underspeed_rpm": 1400
 }
