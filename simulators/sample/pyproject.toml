@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Sample simulator for the app template"
 requires-python = ">=3.11"
 dependencies = [
-    "pydoover>=0.4.10",
+    "pydoover>=1.5.0",
 ]
 
 [project.scripts]

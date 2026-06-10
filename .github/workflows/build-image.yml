@@ -12,6 +12,10 @@ on:
     branches:
       - main
 
+  pull_request:
+    branches:
+      - main
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
@@ -27,10 +31,30 @@ jobs:
     uses: ./.github/workflows/run-tests.yml
     secrets: inherit
 
+  smoke_test:
+    name: Smoke Test (container runs)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          load: true
+          tags: smoke:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Import app package inside the container
+        run: |
+          MODULE=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['scripts']['doover-app-run'].split(':')[0])")
+          docker run --rm --entrypoint python smoke:latest -c "import $MODULE; print('container import OK')"
+
   push_to_registries:
     name: Push Docker Image
-    needs: [lint, test]
-    if: ${{ needs.test.result == 'success' || (github.event_name == 'workflow_dispatch' &&  github.event.inputs.confirmation == 'true') }}
+    needs: [lint, test, smoke_test]
+    if: ${{ github.event_name != 'pull_request' && (needs.test.result == 'success' && needs.smoke_test.result == 'success' || (github.event_name == 'workflow_dispatch' &&  github.event.inputs.confirmation == 'true')) }}
     runs-on: ubuntu-latest
     permissions:
       packages: write
@@ -57,6 +81,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
       - name: Push Images
+        id: push
         uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         with:
           platforms: linux/arm64,linux/amd64
@@ -65,3 +90,17 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign image (key-pair, offline-verifiable)
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.DOOVER_PUBLIC_COSIGN_PRIVATE_KEY }}
+          COSIGN_PASSWORD: ""
+          COSIGN_EXPERIMENTAL: "1"
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          cosign sign --yes --tlog-upload=false --registry-referrers-mode oci-1-1 \
+            --key env://COSIGN_PRIVATE_KEY \
+            "${REGISTRY}/${IMAGE_NAME}@${DIGEST}"
