@@ -1,15 +1,165 @@
 {
-    "display_name": "Test Engine Controller",
-    "simulator_app_key": "sim_app_key",
-    "auto_start_enabled": false,
-    "crank_time_(seconds)": 10,
-    "crank_rest_time_(seconds)": 5,
-    "max_crank_attempts": 3,
-    "cooldown_time_(seconds)": 30,
-    "low_oil_pressure_(psi)": 15.0,
-    "high_coolant_temp_(c)": 95.0,
-    "low_battery_voltage_(v)": 11.5,
-    "high_battery_voltage_(v)": 14.5,
-    "overspeed_rpm": 2000,
-    "underspeed_rpm": 1400
+    "APP_INSTALL_KEY": "dse_engine_controller_1",
+    "APP_KEY": "dse_engine_controller_1",
+    "APP_DISPLAY_NAME": "Engine",
+    "dse_model": "E400",
+    "modbus_server_id": 10,
+    "slow_poll_period_seconds": 10,
+    "modbus_config": {
+        "name": "default",
+        "tcp_uri": "127.0.0.1:5020",
+        "bus_type": "tcp",
+        "serial_baud": 19200,
+        "serial_port": "/dev/ttyAMA0",
+        "tcp_timeout": 2,
+        "serial_method": "rtu",
+        "serial_parity": "None",
+        "serial_timeout": 0.3,
+        "serial_data_bits": 8,
+        "serial_stop_bits": 1
+    },
+    "dv_app_position": 100,
+    "horn_output_pin": 3,
+    "remote_sensor_1": {
+        "invert": false,
+        "agent_id": null,
+        "app_name": "4_20ma_sensor_2",
+        "tag_name": "value",
+        "sensor_label": "Discharge Pressure",
+        "sensor_units": "kPa",
+        "reference_name": "remote_sensor_0",
+        "setpoint_min": 0,
+        "setpoint_max": 110,
+        "start_sensor_direction": "Above",
+        "stop_sensor_direction": "Below"
+    },
+    "remote_sensor_2": {
+        "invert": false,
+        "agent_id": null,
+        "app_name": "4_20ma_sensor_1",
+        "tag_name": "value",
+        "sensor_label": "Inlet Pressure",
+        "sensor_units": "kPa",
+        "reference_name": "remote_sensor_1",
+        "setpoint_min": 50,
+        "setpoint_max": 120,
+        "start_sensor_direction": "Above",
+        "stop_sensor_direction": "Below"
+    },
+    "remote_sensor_3": null,
+    "analog_inputs": [
+        {
+            "ai_pin": 2,
+            "sensor_label": "Discharge Pressure (AI)",
+            "sensor_units": "kPa",
+            "signal_type": "4-20 mA",
+            "value_min": 0,
+            "value_max": 1600,
+            "invert": false,
+            "setpoint_min": 0,
+            "setpoint_max": 1500,
+            "filter_seconds": 4,
+            "fault_below": 3.5,
+            "display_ranges": [
+                {
+                    "label": "Low",
+                    "min_val": 0,
+                    "max_val": 200,
+                    "colour": "red"
+                },
+                {
+                    "label": "Normal",
+                    "min_val": 200,
+                    "max_val": 1400,
+                    "colour": "green"
+                },
+                {
+                    "label": "High",
+                    "min_val": 1400,
+                    "max_val": 1600,
+                    "colour": "yellow"
+                }
+            ],
+            "allow_rpm_control": true
+        },
+        {
+            "ai_pin": 3,
+            "sensor_label": "Tank Level",
+            "sensor_units": "%",
+            "signal_type": "4-20 mA",
+            "value_min": 0,
+            "value_max": 100,
+            "setpoint_min": 0,
+            "setpoint_max": 100
+        }
+    ],
+    "enable_remote_tags": true,
+    "sensor_fault_action": "Hold",
+    "sensor_fault_grace_seconds": 30,
+    "beacon_output_pin": 2,
+    "target_rpm_maximum": 2000,
+    "target_rpm_minimum": 900,
+    "poll_period_seconds": 1,
+    "stop_timeout_seconds": 120,
+    "enable_remote_control": true,
+    "start_timeout_seconds": 180,
+    "prestart_warning_seconds": 30,
+    "regulate_sensitivity_maximum": 10,
+    "regulate_sensitivity_minimum": 1,
+    "run_modes": [
+        {
+            "label": "Warm Up",
+            "control": "Fixed",
+            "target_rpm": 900,
+            "minimum_seconds": 20
+        },
+        {
+            "label": "Line Fill",
+            "control": "Fixed",
+            "target_rpm": 1300,
+            "minimum_seconds": 10
+        },
+        {
+            "label": "Pressure Control",
+            "control": "Regulate",
+            "variable": "Discharge Pressure (AI)",
+            "setpoint": 800,
+            "sensitivity": 3,
+            "minimum_seconds": 30
+        },
+        {
+            "label": "Panel Pressure",
+            "control": "Maintain Value",
+            "panel_setpoint": 2.5,
+            "panel_setpoint_min": 0,
+            "panel_setpoint_max": 10,
+            "minimum_seconds": 10
+        }
+    ],
+    "run_mode_transitions": [
+        {
+            "from_mode": "Warm Up",
+            "to_mode": "Line Fill",
+            "when": "Panel Flag",
+            "panel_flag": "Warming Up",
+            "panel_state": "Off",
+            "panel_hold_seconds": 5
+        },
+        {
+            "from_mode": "Line Fill",
+            "to_mode": "Pressure Control",
+            "when": "Timer",
+            "after_seconds": 60
+        },
+        {
+            "from_mode": "Pressure Control",
+            "to_mode": "Line Fill",
+            "when": "Sensor",
+            "variable": "Discharge Pressure (AI)",
+            "direction": "Below",
+            "setpoint": 200,
+            "sensor_hold_seconds": 15
+        }
+    ],
+    "start_in_mode": "Warm Up"
 }

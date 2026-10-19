@@ -10,72 +10,90 @@ The basic structure of the repository is as follows:
 ## Getting Started
 
 ```
-README.md           <-- App description
-DEVELOPMENT.md      <-- This file
-pyproject.toml      <-- Python project configuration file (including dependencies)
-Dockerfile          <-- Dockerfile for building the application image
-doover_config.json  <-- Configuration file for doover
+README.md             <-- App description
+DEVELOPMENT.md        <-- This file
+pyproject.toml        <-- Python project configuration file (including dependencies)
+Dockerfile            <-- Dockerfile for building the application image
+doover_config.json    <-- Generated config schema consumed by Doover
 
-src/app_template/   <-- Application directory
-  application.py    <-- Main application code
-  app_config.py     <-- Config schema definition
-  app_ui.py         <-- UI code (if applicable)
-  app_state.py      <-- State machine (if applicable)
+src/app_template/     <-- Application package
+  __init__.py         <-- Entry point: run_app(SampleApplication())
+  application.py      <-- Main application code (setup, main_loop, UI handlers)
+  app_config.py       <-- Config schema definition
+  app_tags.py         <-- Runtime state tag declarations
+  app_ui.py           <-- UI definition
+  app_state.py        <-- State machine (optional)
 
-simulator/
-  app_config.json   <-- Sample configuration for the simulator
-  docker-compose.yml <-- Docker Compose file for the simulator
-  
+simulators/
+  app_config.json     <-- Sample configuration injected into the app when running locally
+  docker-compose.yml  <-- Docker Compose stack (device agent + simulator + app)
+  dse/                <-- DSE E400 GenComm simulator image (model.py + main.py)
+
 tests/
-    test_imports.py  <-- Test file for the application
+  test_imports.py     <-- Smoke tests for the application
 ```
 
-The `doover_config.json` file is the doover configuration file for the application. 
+The `doover_config.json` file is the Doover configuration file for the application.
 
-It defines all metadata about the application, including name, short and long description, 
-dependent apps, image name, owner organisation, container registry and more.
+It defines all metadata about the application, including name, short and long description,
+dependent apps, image name, owner organisation, container registry and more. Two sections —
+`config_schema` and `ui_schema` — are generated from Python. Do not edit them by hand.
+Regenerate after any change to `app_config.py` or `app_ui.py`:
+
+```bash
+uv run export-config   # writes the config_schema block
+uv run export-ui       # writes the ui_schema block (required for publishing)
+```
+
+The app will fail to publish if `ui_schema` is missing, so make sure both are run and
+committed after editing the UI.
 
 ### Prerequisites
 
-- Docker and Docker Compose installed
+- Docker and Docker Compose
 - Python 3.11 or later (if running locally)
-- Pipenv for managing Python dependencies
+- [uv](https://docs.astral.sh/uv/) for managing Python dependencies
+- The Doover CLI (`doover`)
 
 ### Running Locally
 
-1. Run the application:
+Run the application alongside the sample simulator:
 
 ```bash
 doover app run
 ```
 
+This runs `docker compose up` in `simulators/`.
+
 ## Simulators
 
-The `simulator/` directory contains tools for simulating application behavior. For example:
+The `simulators/` directory contains tooling for running the application without real hardware:
 
-- `app_config.json`: Sample configuration file for the app.
-- `docker-compose.yml`: Defines services for running the application.
-
-You can find a sample simulator in the `simulator/sample/` directory. While it is fairly bare-bones, it shows
-positioning of the simulator in the application structure, and how to start the simulator alongside your application.
+- `app_config.json`: Sample configuration injected into the app at startup via `CONFIG_FP`.
+- `docker-compose.yml`: Defines the device agent, simulator, and application services.
+- `dse/`: A register-accurate DSE E400 simulator. `model.py` is the pure engine/controller model (no pymodbus, so `tests/test_simulator.py` drives it directly); `main.py` serves it over Modbus TCP on port 5020 and exposes `sim_*` control tags through the device agent.
 
 ## Testing
 
-Run the tests using the following command:
+Run the test suite:
 
 ```bash
-pytest tests/
+uv run pytest tests -v
 ```
 
-## Deployment
+## Publishing
 
-The `deployment/` directory contains deployment configurations, including a `docker-compose.yml` file for orchestrating
-services.
+Once your app is ready to publish:
 
-## Customization
+```bash
+doover app publish --profile dv2
+```
 
-To create your own Doover application:
+## Customisation
 
-1. Modify the application logic in the appropriate directory.
-2. Update the simulator and test configurations as needed.
-3. Adjust deployment configurations to suit your requirements.
+To make this template your own:
+
+1. Rename the `src/app_template/` package and update `pyproject.toml` scripts.
+2. Update `app_config.py`, `app_tags.py`, `app_ui.py`, and `application.py` to match your domain.
+3. Adjust the simulator under `simulators/dse/` if the module's behaviour needs modelling differently.
+4. Regenerate `doover_config.json` with `uv run export-config && uv run export-ui`.

@@ -1,0 +1,33 @@
+{
+    "name": "Doover App Template",
+    "image": "mcr.microsoft.com/devcontainers/python:3.13",
+    "features": {
+        "ghcr.io/devcontainers/features/docker-in-docker:2": { "moby": false },
+        "ghcr.io/devcontainers/features/node:1": {},
+        "ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "charliermarsh.ruff",
+                "anthropic.claude-code"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/local/bin/python"
+            }
+        }
+    },
+    "onCreateCommand": "bash .devcontainer/on-create.sh",
+    "updateContentCommand": "bash .devcontainer/update-content.sh",
+    "postAttachCommand": "bash .devcontainer/post-attach.sh",
+    "secrets": {
+        "ANTHROPIC_API_KEY": {
+            "description": "API key for Claude Code. Get one at https://console.anthropic.com/settings/keys — to avoid entering this every time, save it as a permanent Codespaces secret at https://github.com/settings/codespaces"
+        }
+    },
+    "containerEnv": {
+        "UV_LINK_MODE": "copy",
+        "NODE_OPTIONS": "--max-old-space-size=4096"
+    }
+}

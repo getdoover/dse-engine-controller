@@ -5,140 +5,3108 @@
         "type": "DEV",
         "visibility": "PUB",
         "allow_many": true,
-        "description": "Engine monitoring and control",
+        "description": "Interface with DSE E-series engine controllers (E400, E800) via Modbus RTU / GenComm",
         "long_description": "README.md",
-        "depends_on": [],
-        "owner_org_key": "",
-        "image_name": "ghcr.io/getdoover/dse_engine_controller:main",
-        "container_registry_profile_key": "",
-        "build_args": "--platform linux/amd64,linux/arm64",
-        "lambda_config": {},
+        "depends_on": [
+            "platform_interface",
+            "modbus_interface"
+        ],
         "organisation_id": null,
-        "key": null,
-        "owner_org_id": null,
-        "code_repo_id": null,
-        "container_registry_profile_id": null,
-        "repo_branch": "main",
-        "icon_url": "https://images.seeklogo.com/logo-png/27/1/dse-logo-png_seeklogo-271497.png",
+        "image_name": "registry.doover.com/apps/dse_engine_controller:main",
+        "build_args": "--platform linux/amd64,linux/arm64",
         "staging_config": {},
-        "export_config_command": null,
-        "run_command": null,
-        "lambda_arn": null,
+        "generate_ui": true,
+        "icon_url": "https://images.seeklogo.com/logo-png/27/1/dse-logo-png_seeklogo-271497.png",
         "config_schema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "$id": "",
-            "title": "Application Config",
+            "title": "$default",
             "type": "object",
             "properties": {
-                "display_name": {
-                    "title": "Display Name",
-                    "x-name": "display_name",
+                "dse_model": {
+                    "enum": [
+                        "E400",
+                        "E800"
+                    ],
+                    "title": "DSE Model",
+                    "x-name": "dse_model",
                     "x-hidden": false,
-                    "type": "string",
-                    "description": "Name shown in the UI",
-                    "default": "Engine Controller"
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Which DSE E-series controller this app is talking to. Decides how many flexible sensor inputs and alarm registers are read.",
+                    "default": "E400",
+                    "x-position": 0
                 },
-                "auto_start_enabled": {
-                    "title": "Auto Start Enabled",
-                    "x-name": "auto_start_enabled",
+                "modbus_server_id": {
+                    "title": "Modbus Server ID",
+                    "x-name": "modbus_server_id",
                     "x-hidden": false,
-                    "type": "boolean",
-                    "description": "Allow automatic engine starting based on conditions",
-                    "default": false
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Modbus address of the DSE module (factory default 10). The module's RS485 port defaults to 19200 baud, 8 data bits, no parity, 1 stop bit \u2014 set the Modbus bus to match.",
+                    "default": 10,
+                    "x-position": 1,
+                    "minimum": 1,
+                    "maximum": 247
                 },
-                "crank_time_(seconds)": {
-                    "title": "Crank Time (seconds)",
-                    "x-name": "crank_time_(seconds)",
+                "poll_period_seconds": {
+                    "title": "Poll Period Seconds",
+                    "x-name": "poll_period_seconds",
                     "x-hidden": false,
-                    "type": "integer",
-                    "description": "Maximum time to crank before timeout",
-                    "default": 10
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "How often to read the module's live registers (mode, alarms, engine speed, speed control). The module's own 'client inactivity timeout' must be set to at least twice this, or it will treat the link as lost between polls.",
+                    "default": 2.0,
+                    "x-position": 2,
+                    "x-advanced": true,
+                    "minimum": 0.5,
+                    "maximum": 60
                 },
-                "crank_rest_time_(seconds)": {
-                    "title": "Crank Rest Time (seconds)",
-                    "x-name": "crank_rest_time_(seconds)",
+                "slow_poll_period_seconds": {
+                    "title": "Slow Poll Period Seconds",
+                    "x-name": "slow_poll_period_seconds",
                     "x-hidden": false,
-                    "type": "integer",
-                    "description": "Rest time between crank attempts",
-                    "default": 5
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "How often to read the registers that change slowly or not at all: run hours, fuel, the full input-alarm table, flexible sensor readings. Keeps the per-poll bus load down at 19200 baud.",
+                    "default": 10.0,
+                    "x-position": 3,
+                    "x-advanced": true,
+                    "minimum": 2,
+                    "maximum": 600
                 },
-                "max_crank_attempts": {
-                    "title": "Max Crank Attempts",
-                    "x-name": "max_crank_attempts",
+                "power_off_message": {
+                    "title": "Power Off Message",
+                    "x-name": "power_off_message",
                     "x-hidden": false,
-                    "type": "integer",
-                    "description": "Maximum number of crank attempts before failure",
-                    "default": 3
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "What the app tile says when the panel can't be reached. A module that is switched off looks exactly like one that is unreachable, ",
+                    "default": "Power Off",
+                    "x-position": 4,
+                    "x-advanced": true
                 },
-                "cooldown_time_(seconds)": {
-                    "title": "Cooldown Time (seconds)",
-                    "x-name": "cooldown_time_(seconds)",
+                "enable_remote_control": {
+                    "title": "Enable Remote Control",
+                    "x-name": "enable_remote_control",
                     "x-hidden": false,
-                    "type": "integer",
-                    "description": "Engine cooldown period before shutdown",
-                    "default": 60
+                    "type": [
+                        "boolean",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Show the auto-start controls (Start / Stop / target RPM). Every start runs a beacon/horn pre-start warning and handles the panel alarm-reset + Auto-mode sequence automatically. Disable to run as monitor-only.",
+                    "default": true,
+                    "x-position": 5
                 },
-                "low_oil_pressure_(psi)": {
-                    "title": "Low Oil Pressure (PSI)",
-                    "x-name": "low_oil_pressure_(psi)",
+                "panel_power_output_pin": {
+                    "title": "Panel Power Output Pin",
+                    "x-name": "panel_power_output_pin",
                     "x-hidden": false,
-                    "type": "number",
-                    "description": "Oil pressure threshold for low warning",
-                    "default": 15.0
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Optional digital-output pin that switches power to the DSE module, so it can be left unpowered between runs. Held on while a run is wanted, for the whole start sequence and run, and through cooldown; released once the pump is idle again. It is never held off: wire it in parallel with the panel's own power switch and the panel can still be powered up and run by hand at any time. With Enable Remote Control off the app only watches the panel, so the pin is simply held on. Leave empty if the panel is always powered.",
+                    "default": null,
+                    "x-position": 11
                 },
-                "high_coolant_temp_(c)": {
-                    "title": "High Coolant Temp (C)",
-                    "x-name": "high_coolant_temp_(c)",
+                "run_modes": {
+                    "title": "Run Modes",
+                    "x-name": "run_modes",
                     "x-hidden": false,
-                    "type": "number",
-                    "description": "Coolant temperature threshold for high warning",
-                    "default": 95.0
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Ways this pump can be run. Leave empty for a single Fixed RPM mode, which is how the app behaves with nothing configured.",
+                    "default": [],
+                    "x-position": 14,
+                    "items": {
+                        "title": "Run Mode",
+                        "x-name": "run_mode",
+                        "x-hidden": false,
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "x-required": false,
+                        "default": null,
+                        "properties": {
+                            "label": {
+                                "title": "Mode Name",
+                                "x-name": "label",
+                                "x-hidden": false,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "What this mode is called on the dashboard, and the name transitions refer to it by (e.g. Warm Up, Line Fill, Run).",
+                                "default": "",
+                                "x-position": 1
+                            },
+                            "control": {
+                                "enum": [
+                                    "Fixed",
+                                    "Regulate",
+                                    "Maintain Value"
+                                ],
+                                "title": "Control",
+                                "x-name": "control",
+                                "x-hidden": false,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "How this mode decides engine speed. Fixed holds a target RPM; Regulate runs this app's PI loop to hold a Doover sensor at a setpoint by writing the target RPM; Maintain Value hands the loop to the DSE itself \u2014 it holds the flexible-sensor input it was configured with (in DSE Configuration Suite) at a set point, and this app only moves that set point.",
+                                "default": "Fixed",
+                                "x-position": 2
+                            },
+                            "outputs": {
+                                "title": "Digital Outputs",
+                                "x-name": "outputs",
+                                "x-hidden": false,
+                                "type": [
+                                    "array",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Digital outputs this mode drives while it runs. Anything left out rests at its own Default State, so a mode says what the outputs are rather than changing some and inheriting the rest from whichever mode happened to run before it.",
+                                "default": [],
+                                "x-position": 10,
+                                "items": {
+                                    "title": "Output",
+                                    "x-name": "output",
+                                    "x-hidden": false,
+                                    "type": [
+                                        "object",
+                                        "null"
+                                    ],
+                                    "x-required": false,
+                                    "default": null,
+                                    "properties": {
+                                        "output": {
+                                            "title": "Output Name",
+                                            "x-name": "output",
+                                            "x-hidden": false,
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ],
+                                            "x-required": false,
+                                            "description": "Digital output this mode sets, by name.",
+                                            "default": "",
+                                            "x-position": 1
+                                        },
+                                        "state": {
+                                            "title": "On",
+                                            "x-name": "state",
+                                            "x-hidden": false,
+                                            "type": [
+                                                "boolean",
+                                                "null"
+                                            ],
+                                            "x-required": false,
+                                            "description": "Whether this output is energised while this mode runs.",
+                                            "default": false,
+                                            "x-position": 2
+                                        }
+                                    },
+                                    "additionalElements": true,
+                                    "required": [],
+                                    "x-collapsible": true,
+                                    "x-defaultCollapsed": false
+                                }
+                            },
+                            "minimum_seconds": {
+                                "title": "Minimum Seconds",
+                                "x-name": "minimum_seconds",
+                                "x-hidden": false,
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Least time this mode runs before any transition may move on from it.",
+                                "default": 0,
+                                "x-position": 11,
+                                "minimum": 0,
+                                "maximum": 86400
+                            }
+                        },
+                        "additionalElements": true,
+                        "required": [],
+                        "allOf": [
+                            {
+                                "if": {
+                                    "properties": {
+                                        "control": {
+                                            "const": "Fixed"
+                                        }
+                                    }
+                                },
+                                "then": {
+                                    "properties": {
+                                        "target_rpm": {
+                                            "title": "Target RPM",
+                                            "x-name": "target_rpm",
+                                            "x-hidden": false,
+                                            "type": "integer",
+                                            "x-required": true,
+                                            "description": "Speed this mode holds. Required: a Fixed mode with no RPM has nothing to say, and falling back to some app-chosen number would run the pump at a speed nobody picked. The operator can still move it on the dashboard while the pump runs; this is where it starts, and where it returns to on the next deployment.",
+                                            "default": null,
+                                            "x-position": 3,
+                                            "minimum": 0,
+                                            "maximum": 4000
+                                        }
+                                    },
+                                    "required": [
+                                        "target_rpm"
+                                    ]
+                                }
+                            },
+                            {
+                                "if": {
+                                    "properties": {
+                                        "control": {
+                                            "const": "Regulate"
+                                        }
+                                    },
+                                    "required": [
+                                        "control"
+                                    ]
+                                },
+                                "then": {
+                                    "properties": {
+                                        "variable": {
+                                            "title": "Regulated Variable",
+                                            "x-name": "variable",
+                                            "x-hidden": false,
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ],
+                                            "x-required": false,
+                                            "description": "Sensor this mode holds at a setpoint, by name (its Sensor Name from the Analog Inputs or Remote Sensor config). The sensor must have Allow RPM Control turned on. Fixed per mode rather than picked on the dashboard: which reading drives engine speed is a commissioning decision, and fixing it here is what lets each mode have one clean setpoint control instead of one per sensor.",
+                                            "default": "",
+                                            "x-position": 4
+                                        },
+                                        "setpoint": {
+                                            "title": "Setpoint",
+                                            "x-name": "setpoint",
+                                            "x-hidden": false,
+                                            "type": [
+                                                "number",
+                                                "null"
+                                            ],
+                                            "x-required": false,
+                                            "description": "Starting value for this mode's setpoint control, in the sensor's units. The operator can move it on the dashboard within the bounds set on the sensor itself.",
+                                            "default": null,
+                                            "x-position": 5
+                                        },
+                                        "sensitivity": {
+                                            "title": "Regulate Sensitivity",
+                                            "x-name": "sensitivity",
+                                            "x-hidden": false,
+                                            "type": [
+                                                "number",
+                                                "null"
+                                            ],
+                                            "x-required": false,
+                                            "description": "Starting value for this mode's sensitivity control. A mode that wants a gentler or sharper loop than the rest can begin somewhere else on the scale.",
+                                            "default": null,
+                                            "x-position": 6,
+                                            "x-advanced": true
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "if": {
+                                    "properties": {
+                                        "control": {
+                                            "const": "Maintain Value"
+                                        }
+                                    },
+                                    "required": [
+                                        "control"
+                                    ]
+                                },
+                                "then": {
+                                    "properties": {
+                                        "panel_setpoint": {
+                                            "title": "Maintain Value Setpoint",
+                                            "x-name": "panel_setpoint",
+                                            "x-hidden": false,
+                                            "type": [
+                                                "number",
+                                                "null"
+                                            ],
+                                            "x-required": false,
+                                            "description": "Starting set point for the DSE's Maintain Value loop, in the units of the flexible sensor it was configured to hold (e.g. 2.5 for 2.5 bar). Leave blank to leave whatever set point the panel already has. The operator can move it on the dashboard; the panel clamps it to the Set Point Min / Max in its own configuration.",
+                                            "default": null,
+                                            "x-position": 7
+                                        },
+                                        "panel_setpoint_min": {
+                                            "title": "Maintain Value Slider Minimum",
+                                            "x-name": "panel_setpoint_min",
+                                            "x-hidden": false,
+                                            "type": [
+                                                "number",
+                                                "null"
+                                            ],
+                                            "x-required": false,
+                                            "description": "Lower bound of the dashboard set point slider for this mode. The panel's own Set Point Min still applies on top.",
+                                            "default": 0.0,
+                                            "x-position": 8
+                                        },
+                                        "panel_setpoint_max": {
+                                            "title": "Maintain Value Slider Maximum",
+                                            "x-name": "panel_setpoint_max",
+                                            "x-hidden": false,
+                                            "type": [
+                                                "number",
+                                                "null"
+                                            ],
+                                            "x-required": false,
+                                            "description": "Upper bound of the dashboard set point slider for this mode, in the flexible sensor's units.",
+                                            "default": 100.0,
+                                            "x-position": 9
+                                        }
+                                    }
+                                }
+                            }
+                        ],
+                        "x-collapsible": true,
+                        "x-defaultCollapsed": false
+                    }
                 },
-                "low_battery_voltage_(v)": {
-                    "title": "Low Battery Voltage (V)",
-                    "x-name": "low_battery_voltage_(v)",
+                "include_default_fixed_run_mode": {
+                    "title": "Include Default Fixed Run Mode",
+                    "x-name": "include_default_fixed_run_mode",
                     "x-hidden": false,
-                    "type": "number",
-                    "description": "Battery voltage threshold for low warning",
-                    "default": 11.5
+                    "type": [
+                        "boolean",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Offer a plain Fixed RPM mode alongside whatever is configured above, so an operator always has somewhere to take manual control of engine speed regardless of the programme. Nothing transitions into or out of it \u2014 it is reached by hand and stays until it is left by hand. Turn off to restrict the picker to the configured modes only. With no modes configured at all it is the only mode, on or off.",
+                    "default": true,
+                    "x-position": 15,
+                    "x-advanced": true
                 },
-                "high_battery_voltage_(v)": {
-                    "title": "High Battery Voltage (V)",
-                    "x-name": "high_battery_voltage_(v)",
+                "start_in_mode": {
+                    "title": "Start In Mode",
+                    "x-name": "start_in_mode",
                     "x-hidden": false,
-                    "type": "number",
-                    "description": "Battery voltage threshold for high warning",
-                    "default": 14.5
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Mode every start begins in, by name. Leave blank to carry on in whatever mode the pump was last left in \u2014 including one an operator picked before shutting it down. Deliberately not tied to the order of the list above: that order is how the picker reads, and having it decide what every start does would turn re-ordering into a behaviour change.",
+                    "default": "",
+                    "x-position": 16
                 },
-                "overspeed_rpm": {
-                    "title": "Overspeed RPM",
-                    "x-name": "overspeed_rpm",
+                "run_mode_transitions": {
+                    "title": "Run Mode Transitions",
+                    "x-name": "run_mode_transitions",
                     "x-hidden": false,
-                    "type": "integer",
-                    "description": "RPM threshold for overspeed shutdown",
-                    "default": 2000
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Rules for moving between run modes automatically, checked in order \u2014 the first one whose condition is met wins. Leave empty to change modes only by hand.",
+                    "default": [],
+                    "x-position": 17,
+                    "items": {
+                        "title": "Transition",
+                        "x-name": "transition",
+                        "x-hidden": false,
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "x-required": false,
+                        "default": null,
+                        "properties": {
+                            "from_mode": {
+                                "title": "From Mode",
+                                "x-name": "from_mode",
+                                "x-hidden": false,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Mode this rule applies in, by name. Leave blank to apply in every mode.",
+                                "default": "",
+                                "x-position": 1
+                            },
+                            "to_mode": {
+                                "title": "To Mode",
+                                "x-name": "to_mode",
+                                "x-hidden": false,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Mode to move into when this rule fires, by name. The one reserved name is 'Shutdown', which stops the engine",
+                                "default": "",
+                                "x-position": 2
+                            },
+                            "when": {
+                                "enum": [
+                                    "Timer",
+                                    "Sensor",
+                                    "Panel Flag"
+                                ],
+                                "title": "When",
+                                "x-name": "when",
+                                "x-hidden": false,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "What fires this transition. Timer: time spent in the From Mode. Sensor: a reading crossing a setpoint. Panel Flag: a status bit the module itself reports.",
+                                "default": "Sensor",
+                                "x-position": 3
+                            },
+                            "adjustable": {
+                                "title": "Adjustable On Dashboard",
+                                "x-name": "adjustable",
+                                "x-hidden": false,
+                                "type": [
+                                    "boolean",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Put this rule's number on the dashboard so an operator can move it while the pump runs \u2014 how long a Timer waits, or the level a Sensor fires at. It appears with the controls of the mode the rule applies in, since that is when it matters, and starts at the value set here. What the rule *is* stays in config; only its threshold moves. A Panel Flag rule has no number to offer, so this does nothing for one.",
+                                "default": false,
+                                "x-position": 10,
+                                "x-advanced": true
+                            }
+                        },
+                        "additionalElements": true,
+                        "required": [],
+                        "allOf": [
+                            {
+                                "if": {
+                                    "properties": {
+                                        "when": {
+                                            "const": "Timer"
+                                        }
+                                    },
+                                    "required": [
+                                        "when"
+                                    ]
+                                },
+                                "then": {
+                                    "properties": {
+                                        "after_seconds": {
+                                            "title": "After Seconds",
+                                            "x-name": "after_seconds",
+                                            "x-hidden": false,
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ],
+                                            "x-required": false,
+                                            "description": "How long to stay in the From Mode before moving on.",
+                                            "default": 60,
+                                            "x-position": 4,
+                                            "minimum": 1,
+                                            "maximum": 86400
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "if": {
+                                    "properties": {
+                                        "when": {
+                                            "const": "Sensor"
+                                        }
+                                    }
+                                },
+                                "then": {
+                                    "properties": {
+                                        "variable": {
+                                            "title": "Trigger Variable",
+                                            "x-name": "variable",
+                                            "x-hidden": false,
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ],
+                                            "x-required": false,
+                                            "description": "Sensor this rule watches, by name.",
+                                            "default": "",
+                                            "x-position": 5
+                                        },
+                                        "direction": {
+                                            "enum": [
+                                                "Above",
+                                                "Below"
+                                            ],
+                                            "title": "Trigger Direction",
+                                            "x-name": "direction",
+                                            "x-hidden": false,
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ],
+                                            "x-required": false,
+                                            "description": "Fire when the reading is Above or Below the setpoint below. Same vocabulary as the Start and Stop sensor triggers.",
+                                            "default": "Above",
+                                            "x-position": 6
+                                        },
+                                        "setpoint": {
+                                            "title": "Trigger Setpoint",
+                                            "x-name": "setpoint",
+                                            "x-hidden": false,
+                                            "type": [
+                                                "number",
+                                                "null"
+                                            ],
+                                            "x-required": false,
+                                            "description": "Value the reading is compared against, in the sensor's units.",
+                                            "default": null,
+                                            "x-position": 7
+                                        },
+                                        "sensor_hold_seconds": {
+                                            "title": "Hold Condition For Seconds",
+                                            "x-name": "sensor_hold_seconds",
+                                            "x-hidden": false,
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ],
+                                            "x-required": false,
+                                            "description": "How long the reading must stay past the setpoint before this fires \u2014 'pressure above 200 kPa for 10 seconds'. 0 fires the moment it crosses. The hold re-arms whenever the mode changes, and a reading that drops out mid-hold starts it over.",
+                                            "default": 0,
+                                            "x-position": 11,
+                                            "minimum": 0,
+                                            "maximum": 86400
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "if": {
+                                    "properties": {
+                                        "when": {
+                                            "const": "Panel Flag"
+                                        }
+                                    },
+                                    "required": [
+                                        "when"
+                                    ]
+                                },
+                                "then": {
+                                    "properties": {
+                                        "panel_flag": {
+                                            "enum": [
+                                                "Warming Up",
+                                                "Cooling Down",
+                                                "Common Alarm",
+                                                "Warning"
+                                            ],
+                                            "title": "Panel Flag",
+                                            "x-name": "panel_flag",
+                                            "x-hidden": false,
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ],
+                                            "x-required": false,
+                                            "description": "State reported by the DSE module itself.",
+                                            "default": "Warming Up",
+                                            "x-position": 8
+                                        },
+                                        "panel_state": {
+                                            "enum": [
+                                                "On",
+                                                "Off"
+                                            ],
+                                            "title": "Flag State",
+                                            "x-name": "panel_state",
+                                            "x-hidden": false,
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ],
+                                            "x-required": false,
+                                            "description": "Fire while the flag is On or Off. 'Warming Up / Off' is how you say 'once the panel has finished warming up' \u2014 pair it with a Hold For Seconds so it can't fire before warm-up has even begun.",
+                                            "default": "Off",
+                                            "x-position": 9
+                                        },
+                                        "panel_hold_seconds": {
+                                            "title": "Hold Condition For Seconds",
+                                            "x-name": "panel_hold_seconds",
+                                            "x-hidden": false,
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ],
+                                            "x-required": false,
+                                            "description": "How long the flag must stay in that state before this fires. 0 fires as soon as it is. Worth pairing with 'Warming Up / Off', which reads true before the panel has raised its warm-up bit at all \u2014 though a Minimum Seconds on the mode is the sturdier guard.",
+                                            "default": 0,
+                                            "x-position": 12,
+                                            "minimum": 0,
+                                            "maximum": 86400
+                                        }
+                                    }
+                                }
+                            }
+                        ],
+                        "x-collapsible": true,
+                        "x-defaultCollapsed": false
+                    }
                 },
-                "underspeed_rpm": {
-                    "title": "Underspeed RPM",
-                    "x-name": "underspeed_rpm",
+                "enable_announcements": {
+                    "title": "Enable Spoken Announcements",
+                    "x-name": "enable_announcements",
                     "x-hidden": false,
-                    "type": "integer",
-                    "description": "RPM threshold for underspeed warning",
-                    "default": 1400
+                    "type": [
+                        "boolean",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Speak the pre-start warning and the start over a speaker app. Only applies when Enable Remote Control is on.",
+                    "default": false,
+                    "x-position": 18,
+                    "x-advanced": true
                 },
-                "simulator_app_key": {
-                    "format": "doover-application",
-                    "title": "Simulator App Key",
-                    "x-name": "simulator_app_key",
+                "analog_inputs": {
+                    "title": "Analog Inputs",
+                    "x-name": "analog_inputs",
                     "x-hidden": false,
-                    "type": "string",
-                    "description": "App key for engine data simulator (for testing)"
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Sensors wired directly to this device's analog inputs. Add one entry per sensor. On a doovit, AI 0-1 are the 0-10 V inputs and AI 2-5 the 4-20 mA current loops.",
+                    "default": [],
+                    "x-position": 23,
+                    "items": {
+                        "title": "Analog Input",
+                        "x-name": "analog_input",
+                        "x-hidden": false,
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "x-required": false,
+                        "default": null,
+                        "properties": {
+                            "ai_pin": {
+                                "title": "Analog Input Pin",
+                                "x-name": "ai_pin",
+                                "x-hidden": false,
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Device analog-input pin this sensor is wired to. On a doovit, AI 0-1 are the 0-10 V inputs and AI 2-5 the 4-20 mA current loops.",
+                                "default": null,
+                                "x-position": 1,
+                                "minimum": 0,
+                                "maximum": 63
+                            },
+                            "sensor_label": {
+                                "title": "Sensor Name",
+                                "x-name": "sensor_label",
+                                "x-hidden": false,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Friendly label shown in the UI and the variable pickers.",
+                                "default": "",
+                                "x-position": 2
+                            },
+                            "sensor_units": {
+                                "title": "Units",
+                                "x-name": "sensor_units",
+                                "x-hidden": false,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Units shown next to the value (e.g. kPa). Optional.",
+                                "default": "",
+                                "x-position": 3
+                            },
+                            "signal_type": {
+                                "enum": [
+                                    "4-20 mA",
+                                    "0-10 V",
+                                    "Custom"
+                                ],
+                                "title": "Signal Type",
+                                "x-name": "signal_type",
+                                "x-hidden": false,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "What the sensor puts out. 4-20 mA also gets open-circuit detection; 0-10 V can't (0 V is a real reading). Custom for anything else.",
+                                "default": "4-20 mA",
+                                "x-position": 4
+                            },
+                            "value_min": {
+                                "title": "Value At Minimum Signal",
+                                "x-name": "value_min",
+                                "x-hidden": false,
+                                "type": [
+                                    "number",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Reading this sensor represents at the bottom of its signal range (4 mA / 0 V), in its units.",
+                                "default": 0.0,
+                                "x-position": 7
+                            },
+                            "value_max": {
+                                "title": "Value At Maximum Signal",
+                                "x-name": "value_max",
+                                "x-hidden": false,
+                                "type": [
+                                    "number",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Reading at the top of the signal range (20 mA / 10 V). May be lower than the minimum for an inverse-scaled sensor (e.g. ullage).",
+                                "default": 100.0,
+                                "x-position": 8
+                            },
+                            "invert": {
+                                "title": "Invert Control",
+                                "x-name": "invert",
+                                "x-hidden": false,
+                                "type": [
+                                    "boolean",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Inverse-acting control for RPM Regulate. By default the loop assumes more RPM raises this reading, so it speeds up when the reading is below setpoint. Turn this on when more RPM LOWERS the reading, so it speeds up when the reading is above setpoint.",
+                                "default": false,
+                                "x-position": 9
+                            },
+                            "setpoint_min": {
+                                "title": "Setpoint Minimum",
+                                "x-name": "setpoint_min",
+                                "x-hidden": false,
+                                "type": [
+                                    "number",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Lower bound for this sensor's setpoint slider (in its units).",
+                                "default": 0.0,
+                                "x-position": 10
+                            },
+                            "setpoint_max": {
+                                "title": "Setpoint Maximum",
+                                "x-name": "setpoint_max",
+                                "x-hidden": false,
+                                "type": [
+                                    "number",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Upper bound for this sensor's setpoint slider (in its units).",
+                                "default": 100.0,
+                                "x-position": 11
+                            },
+                            "allow_rpm_control": {
+                                "title": "Allow RPM Control",
+                                "x-name": "allow_rpm_control",
+                                "x-hidden": false,
+                                "type": [
+                                    "boolean",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Let this sensor be picked as the variable RPM Regulate holds. Off by default: driving engine speed from a reading is a deliberate choice, and a sensor that's only there to be watched (or to trigger a start/stop) shouldn't be offered for it.",
+                                "default": false,
+                                "x-position": 12
+                            },
+                            "display_ranges": {
+                                "title": "Display Ranges",
+                                "x-name": "display_ranges",
+                                "x-hidden": false,
+                                "type": [
+                                    "array",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Coloured bands on this sensor's gauge, e.g. 0-200 red 'Low', 200-1400 green 'Normal', 1400-1600 yellow 'High'. Leave empty for a single plain band across the whole range.",
+                                "default": [],
+                                "x-position": 13,
+                                "items": {
+                                    "title": "Range",
+                                    "x-name": "range",
+                                    "x-hidden": false,
+                                    "type": "object",
+                                    "x-required": true,
+                                    "properties": {
+                                        "label": {
+                                            "title": "Label",
+                                            "x-name": "label",
+                                            "x-hidden": false,
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ],
+                                            "x-required": false,
+                                            "description": "Shown on the gauge for this band (e.g. Low, Normal). Optional.",
+                                            "default": "",
+                                            "x-position": 1
+                                        },
+                                        "min_val": {
+                                            "title": "From",
+                                            "x-name": "min_val",
+                                            "x-hidden": false,
+                                            "type": [
+                                                "number",
+                                                "null"
+                                            ],
+                                            "x-required": false,
+                                            "description": "Reading this band starts at, in the sensor's units.",
+                                            "default": null,
+                                            "x-position": 2
+                                        },
+                                        "max_val": {
+                                            "title": "To",
+                                            "x-name": "max_val",
+                                            "x-hidden": false,
+                                            "type": [
+                                                "number",
+                                                "null"
+                                            ],
+                                            "x-required": false,
+                                            "description": "Reading this band ends at, in the sensor's units.",
+                                            "default": null,
+                                            "x-position": 3
+                                        },
+                                        "colour": {
+                                            "enum": [
+                                                "green",
+                                                "yellow",
+                                                "red",
+                                                "blue",
+                                                "orange",
+                                                "grey",
+                                                "limegreen",
+                                                "tomato",
+                                                "purple",
+                                                "magenta"
+                                            ],
+                                            "title": "Colour",
+                                            "x-name": "colour",
+                                            "x-hidden": false,
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ],
+                                            "x-required": false,
+                                            "description": "Colour of this band on the gauge.",
+                                            "default": "green",
+                                            "x-position": 4
+                                        }
+                                    },
+                                    "additionalElements": true,
+                                    "required": [],
+                                    "x-collapsible": true,
+                                    "x-defaultCollapsed": false
+                                }
+                            },
+                            "filter_seconds": {
+                                "title": "Smoothing Seconds",
+                                "x-name": "filter_seconds",
+                                "x-hidden": false,
+                                "type": [
+                                    "number",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Time constant of the smoothing filter on this input. Bigger is steadier but slower to react; 0 disables filtering.",
+                                "default": 4.0,
+                                "x-position": 14,
+                                "x-advanced": true,
+                                "minimum": 0.0,
+                                "maximum": 120.0
+                            }
+                        },
+                        "additionalElements": true,
+                        "required": [],
+                        "allOf": [
+                            {
+                                "if": {
+                                    "properties": {
+                                        "signal_type": {
+                                            "const": "Custom"
+                                        }
+                                    },
+                                    "required": [
+                                        "signal_type"
+                                    ]
+                                },
+                                "then": {
+                                    "properties": {
+                                        "signal_min": {
+                                            "title": "Custom Signal Minimum",
+                                            "x-name": "signal_min",
+                                            "x-hidden": false,
+                                            "type": [
+                                                "number",
+                                                "null"
+                                            ],
+                                            "x-required": false,
+                                            "description": "Raw signal at the bottom of the range (e.g. 0 for 0-20 mA).",
+                                            "default": 4.0,
+                                            "x-position": 5
+                                        },
+                                        "signal_max": {
+                                            "title": "Custom Signal Maximum",
+                                            "x-name": "signal_max",
+                                            "x-hidden": false,
+                                            "type": [
+                                                "number",
+                                                "null"
+                                            ],
+                                            "x-required": false,
+                                            "description": "Raw signal at the top of the range.",
+                                            "default": 20.0,
+                                            "x-position": 6
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "if": {
+                                    "properties": {
+                                        "signal_type": {
+                                            "const": "4-20 mA"
+                                        }
+                                    }
+                                },
+                                "then": {
+                                    "properties": {
+                                        "fault_below": {
+                                            "title": "Open Circuit Below",
+                                            "x-name": "fault_below",
+                                            "x-hidden": false,
+                                            "type": [
+                                                "number",
+                                                "null"
+                                            ],
+                                            "x-required": false,
+                                            "description": "Current below which the loop is treated as broken (open circuit), rather than as a low reading. 4-20 mA only.",
+                                            "default": 3.5,
+                                            "x-position": 15,
+                                            "x-advanced": true,
+                                            "minimum": 0.0,
+                                            "maximum": 4.0
+                                        }
+                                    }
+                                }
+                            }
+                        ],
+                        "x-collapsible": true,
+                        "x-defaultCollapsed": false
+                    }
+                },
+                "digital_outputs": {
+                    "title": "Digital Outputs",
+                    "x-name": "digital_outputs",
+                    "x-hidden": false,
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Digital outputs wired to this device, one entry per output. Their state is shown on the dashboard, and each run mode says which of them it wants on.",
+                    "default": [],
+                    "x-position": 24,
+                    "items": {
+                        "title": "Digital Output",
+                        "x-name": "digital_output",
+                        "x-hidden": false,
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "x-required": false,
+                        "default": null,
+                        "properties": {
+                            "do_pin": {
+                                "title": "Output Pin",
+                                "x-name": "do_pin",
+                                "x-hidden": false,
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Device digital-output pin this output is wired to.",
+                                "default": null,
+                                "x-position": 1,
+                                "minimum": 0,
+                                "maximum": 63
+                            },
+                            "label": {
+                                "title": "Output Name",
+                                "x-name": "label",
+                                "x-hidden": false,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "What this output is called on the dashboard, and the name a run mode refers to it by (e.g. Clutch, Discharge Valve).",
+                                "default": "",
+                                "x-position": 2
+                            },
+                            "default_off_state": {
+                                "title": "Default Off State",
+                                "x-name": "default_off_state",
+                                "x-hidden": false,
+                                "type": [
+                                    "boolean",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Where this output sits whenever the engine is not turning \u2014 between runs, and through the pre-start warning and the cranking.",
+                                "default": false,
+                                "x-position": 3
+                            },
+                            "default_running_state": {
+                                "title": "Default Running State",
+                                "x-name": "default_running_state",
+                                "x-hidden": false,
+                                "type": [
+                                    "boolean",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Where this output sits while the engine runs, unless a run mode says otherwise.",
+                                "default": false,
+                                "x-position": 4
+                            }
+                        },
+                        "additionalElements": true,
+                        "required": [],
+                        "x-collapsible": true,
+                        "x-defaultCollapsed": false
+                    }
+                },
+                "sensor_fault_action": {
+                    "enum": [
+                        "Hold",
+                        "Stop Engine"
+                    ],
+                    "title": "Sensor Fault Action",
+                    "x-name": "sensor_fault_action",
+                    "x-hidden": false,
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "What to do when a native analog sensor the app is acting on fails (open circuit / over range) for longer than the grace period below. Hold keeps the last commanded RPM and stops sensor triggers firing; Stop Engine shuts the engine down through the normal cooldown.",
+                    "default": "Hold",
+                    "x-position": 25,
+                    "x-advanced": true
+                },
+                "sensor_fault_grace_seconds": {
+                    "title": "Sensor Fault Grace Seconds",
+                    "x-name": "sensor_fault_grace_seconds",
+                    "x-hidden": false,
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "How long a sensor must stay faulted before the Sensor Fault Action is taken. Rides out brief glitches without a nuisance shutdown.",
+                    "default": 30,
+                    "x-position": 26,
+                    "x-advanced": true,
+                    "minimum": 5,
+                    "maximum": 600
+                },
+                "start_trigger_direction": {
+                    "enum": [
+                        "Above",
+                        "Below"
+                    ],
+                    "title": "Start Trigger Direction",
+                    "x-name": "start_trigger_direction",
+                    "x-hidden": false,
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "For Sensor start control: fire the start when the chosen sensor reads Above or Below its start setpoint.",
+                    "default": "Below",
+                    "x-position": 27,
+                    "x-advanced": true
+                },
+                "stop_trigger_direction": {
+                    "enum": [
+                        "Above",
+                        "Below"
+                    ],
+                    "title": "Stop Trigger Direction",
+                    "x-name": "stop_trigger_direction",
+                    "x-hidden": false,
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "For Sensor stop control: fire the stop when the chosen sensor reads Above or Below its stop setpoint.",
+                    "default": "Above",
+                    "x-position": 28,
+                    "x-advanced": true
+                },
+                "regulate_sensitivity_minimum": {
+                    "title": "Regulate Sensitivity Minimum",
+                    "x-name": "regulate_sensitivity_minimum",
+                    "x-hidden": false,
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Lower bound (gentlest) for the RPM Regulate sensitivity slider. The knob is geometric \u2014 every 6 steps divides the loop's gains by ten \u2014 so the default 0.1 is about a 45th of the top of the scale. Raise it if you never want the loop that slow.",
+                    "default": 0.1,
+                    "x-position": 29,
+                    "x-advanced": true,
+                    "minimum": 0.1,
+                    "maximum": 100
+                },
+                "regulate_sensitivity_maximum": {
+                    "title": "Regulate Sensitivity Maximum",
+                    "x-name": "regulate_sensitivity_maximum",
+                    "x-hidden": false,
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Upper bound (most aggressive) for the RPM Regulate sensitivity input.",
+                    "default": 10.0,
+                    "x-position": 30,
+                    "x-advanced": true,
+                    "minimum": 0.1,
+                    "maximum": 100
+                },
+                "enable_remote_tags": {
+                    "title": "Enable Remote Tags",
+                    "x-name": "enable_remote_tags",
+                    "x-hidden": false,
+                    "type": [
+                        "boolean",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Read sensors published by other apps on this device, in addition to the analog inputs above. Shows the remote tag slots below.",
+                    "default": false,
+                    "x-position": 31
+                },
+                "modbus_config": {
+                    "title": "Modbus Config",
+                    "x-name": "modbus_config",
+                    "x-hidden": false,
+                    "type": "object",
+                    "x-required": true,
+                    "x-position": 35,
+                    "properties": {
+                        "bus_type": {
+                            "enum": [
+                                "serial",
+                                "tcp"
+                            ],
+                            "title": "Bus Type",
+                            "x-name": "bus_type",
+                            "x-hidden": false,
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "x-required": false,
+                            "default": "serial",
+                            "x-position": 1
+                        },
+                        "name": {
+                            "title": "Name",
+                            "x-name": "name",
+                            "x-hidden": false,
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "x-required": false,
+                            "default": "default",
+                            "x-position": 2
+                        },
+                        "serial_port": {
+                            "title": "Serial Port",
+                            "x-name": "serial_port",
+                            "x-hidden": false,
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "x-required": false,
+                            "default": "/dev/ttyAMA0",
+                            "x-position": 3
+                        },
+                        "serial_baud": {
+                            "title": "Serial Baud",
+                            "x-name": "serial_baud",
+                            "x-hidden": false,
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "x-required": false,
+                            "default": 9600,
+                            "x-position": 4
+                        },
+                        "serial_method": {
+                            "enum": [
+                                "rtu",
+                                "ascii",
+                                "socket",
+                                "tls"
+                            ],
+                            "title": "Serial Method",
+                            "x-name": "serial_method",
+                            "x-hidden": false,
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "x-required": false,
+                            "default": "rtu",
+                            "x-position": 5
+                        },
+                        "serial_data_bits": {
+                            "title": "Serial Data Bits",
+                            "x-name": "serial_data_bits",
+                            "x-hidden": false,
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "x-required": false,
+                            "default": 8,
+                            "x-position": 6
+                        },
+                        "serial_parity": {
+                            "enum": [
+                                "None",
+                                "Even",
+                                "Odd"
+                            ],
+                            "title": "Serial Parity",
+                            "x-name": "serial_parity",
+                            "x-hidden": false,
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "x-required": false,
+                            "default": "None",
+                            "x-position": 7
+                        },
+                        "serial_stop_bits": {
+                            "title": "Serial Stop Bits",
+                            "x-name": "serial_stop_bits",
+                            "x-hidden": false,
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "x-required": false,
+                            "default": 1,
+                            "x-position": 8
+                        },
+                        "serial_timeout": {
+                            "title": "Serial Timeout",
+                            "x-name": "serial_timeout",
+                            "x-hidden": false,
+                            "type": [
+                                "number",
+                                "null"
+                            ],
+                            "x-required": false,
+                            "default": 0.3,
+                            "x-position": 9
+                        },
+                        "tcp_uri": {
+                            "title": "TCP URI",
+                            "x-name": "tcp_uri",
+                            "x-hidden": false,
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "x-required": false,
+                            "default": "127.0.0.1:5000",
+                            "x-position": 10
+                        },
+                        "tcp_timeout": {
+                            "title": "TCP Timeout",
+                            "x-name": "tcp_timeout",
+                            "x-hidden": false,
+                            "type": [
+                                "number",
+                                "null"
+                            ],
+                            "x-required": false,
+                            "default": 2.0,
+                            "x-position": 11
+                        }
+                    },
+                    "additionalElements": true,
+                    "required": [],
+                    "x-collapsible": true,
+                    "x-defaultCollapsed": false
+                },
+                "dv_app_position": {
+                    "title": "Position",
+                    "x-name": "dv_app_position",
+                    "x-hidden": true,
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Position of Application in UI Structure. Smaller numbers are closer to the top.",
+                    "default": 100,
+                    "x-position": 36,
+                    "minimum": 0
+                },
+                "dv_app_default_open": {
+                    "title": "Default Open",
+                    "x-name": "dv_app_default_open",
+                    "x-hidden": true,
+                    "type": [
+                        "boolean",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Whether the application is default open in the UI. By default this is not set - which makes it dynamic on the number of apps installed.",
+                    "default": null,
+                    "x-position": 37
                 }
             },
             "additionalElements": true,
             "required": [
-                "simulator_app_key"
+                "modbus_config"
+            ],
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {
+                            "enable_remote_control": {
+                                "const": true
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "prestart_warning_seconds": {
+                                "title": "Pre-Start Warning Seconds",
+                                "x-name": "prestart_warning_seconds",
+                                "x-hidden": false,
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "How long minimum warning period is before the engine may actually turn over start.",
+                                "default": 30,
+                                "x-position": 6,
+                                "x-advanced": true,
+                                "minimum": 5,
+                                "maximum": 300
+                            },
+                            "start_timeout_seconds": {
+                                "title": "Start Timeout Seconds",
+                                "x-name": "start_timeout_seconds",
+                                "x-hidden": false,
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Safety cap on the whole start attempt: Starts counting from the moment a start is requested, covering the pre-start warning, getting the panel ready (reset alarms \u2192 Auto) and the engine actually reporting running.",
+                                "default": 90,
+                                "x-position": 7,
+                                "x-advanced": true,
+                                "minimum": 30,
+                                "maximum": 600
+                            },
+                            "stop_timeout_seconds": {
+                                "title": "Stop Timeout Seconds",
+                                "x-name": "stop_timeout_seconds",
+                                "x-hidden": false,
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Safety cap: if the engine hasn't reported stopped this many seconds after a stop command, the auto-start flags a fault.",
+                                "default": 120,
+                                "x-position": 8,
+                                "x-advanced": true,
+                                "minimum": 10,
+                                "maximum": 600
+                            },
+                            "beacon_output_pin": {
+                                "title": "Beacon Output Pin",
+                                "x-name": "beacon_output_pin",
+                                "x-hidden": false,
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Device digital-output pin that drives the warning beacon. Energised for the whole pre-start warning and while cranking. Leave empty to disable beacon output.",
+                                "default": null,
+                                "x-position": 9
+                            },
+                            "horn_output_pin": {
+                                "title": "Horn Output Pin",
+                                "x-name": "horn_output_pin",
+                                "x-hidden": false,
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Optional second digital-output pin for a warning horn. Pulses during the pre-start warning countdown. Leave empty to disable.",
+                                "default": null,
+                                "x-position": 10
+                            },
+                            "target_rpm_minimum": {
+                                "title": "Target RPM Minimum",
+                                "x-name": "target_rpm_minimum",
+                                "x-hidden": false,
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Lower bound for the Target RPM input. Keep it above the engine's configured minimum speed on the DSE.",
+                                "default": 900,
+                                "x-position": 12,
+                                "x-advanced": true,
+                                "minimum": 0,
+                                "maximum": 4000
+                            },
+                            "target_rpm_maximum": {
+                                "title": "Target RPM Maximum",
+                                "x-name": "target_rpm_maximum",
+                                "x-hidden": false,
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "Upper bound for the Target RPM input. Keep it below the DSE's overspeed and maximum speed settings.",
+                                "default": 2000,
+                                "x-position": 13,
+                                "x-advanced": true,
+                                "minimum": 0,
+                                "maximum": 4000
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "enable_announcements": {
+                                "const": true
+                            }
+                        },
+                        "required": [
+                            "enable_announcements"
+                        ]
+                    },
+                    "then": {
+                        "properties": {
+                            "announcement_speaker": {
+                                "title": "Announcement Speaker",
+                                "x-name": "announcement_speaker",
+                                "x-hidden": false,
+                                "format": "doover-resource-application",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "The speaker app that voices the announcements.",
+                                "default": null,
+                                "x-position": 19,
+                                "x-advanced": true
+                            },
+                            "prestart_announcement": {
+                                "title": "Pre-Start Announcement",
+                                "x-name": "prestart_announcement",
+                                "x-hidden": false,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "What the speaker says while the pre-start warning runs, repeated every 20 seconds until the engine is commanded to start. {name} is replaced with this app's display name. Deliberately no countdown: the warning stays up until the panel is ready to take a start, and the panel's reset/reboot into Auto takes an unpredictable time, so any figure would be a guess. An old {seconds} placeholder is reworded to 'shortly' automatically.",
+                                "default": "{name} starting.",
+                                "x-position": 20,
+                                "x-advanced": true
+                            },
+                            "start_announcement": {
+                                "title": "Start Announcement",
+                                "x-name": "start_announcement",
+                                "x-hidden": false,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "What the speaker says the moment the engine begins to crank, after the pre-start warning.",
+                                "default": "{name} starting now.",
+                                "x-position": 21,
+                                "x-advanced": true
+                            },
+                            "start_failed_announcement": {
+                                "title": "Start Failed Announcement",
+                                "x-name": "start_failed_announcement",
+                                "x-hidden": false,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "What the speaker says when an auto-start gives up \u2014 the panel never became ready, or the engine never ran. Anyone who heard the warning otherwise just hears the horn stop, which is what a successful start sounds like too. {name} is replaced with this app's display name; leave blank for no announcement.",
+                                "default": "{name} startup failed.",
+                                "x-position": 22,
+                                "x-advanced": true
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "enable_remote_tags": {
+                                "const": true
+                            }
+                        },
+                        "required": [
+                            "enable_remote_tags"
+                        ]
+                    },
+                    "then": {
+                        "properties": {
+                            "remote_sensor_1": {
+                                "title": "Remote Sensor 1",
+                                "x-name": "remote_sensor_1",
+                                "x-hidden": false,
+                                "format": "doover-tag-reference",
+                                "type": [
+                                    "object",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "An external sensor read from another app. Leave the application blank to disable this slot.",
+                                "default": null,
+                                "x-position": 32,
+                                "properties": {
+                                    "reference_name": {
+                                        "title": "Reference Name",
+                                        "x-name": "reference_name",
+                                        "x-hidden": true,
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "x-required": false,
+                                        "description": "Local handle for this tag. Match this in your `RemoteTag` declaration.",
+                                        "default": "remote_sensor_0",
+                                        "x-position": 1
+                                    },
+                                    "agent_id": {
+                                        "title": "Agent",
+                                        "x-name": "agent_id",
+                                        "x-hidden": false,
+                                        "format": "doover-resource-device",
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "x-required": false,
+                                        "description": "Agent that owns the upstream tag. Leave blank to use this agent.",
+                                        "default": null,
+                                        "x-position": 2,
+                                        "pattern": "\\d+"
+                                    },
+                                    "app_name": {
+                                        "title": "Application",
+                                        "x-name": "app_name",
+                                        "x-hidden": false,
+                                        "format": "doover-application",
+                                        "type": "string",
+                                        "x-required": true,
+                                        "description": "Application that publishes the upstream tag.",
+                                        "x-position": 3
+                                    },
+                                    "tag_name": {
+                                        "title": "Tag Name",
+                                        "x-name": "tag_name",
+                                        "x-hidden": false,
+                                        "type": "string",
+                                        "x-required": true,
+                                        "description": "Name of the upstream tag within the chosen application.",
+                                        "x-position": 4
+                                    },
+                                    "sensor_label": {
+                                        "title": "Sensor Name",
+                                        "x-name": "sensor_label",
+                                        "x-hidden": false,
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "x-required": false,
+                                        "description": "Friendly label shown in the UI and the RPM Regulate picker.",
+                                        "default": "",
+                                        "x-position": 5
+                                    },
+                                    "sensor_units": {
+                                        "title": "Units",
+                                        "x-name": "sensor_units",
+                                        "x-hidden": false,
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "x-required": false,
+                                        "description": "Units shown next to the value (e.g. kPa). Optional.",
+                                        "default": "",
+                                        "x-position": 6
+                                    },
+                                    "invert": {
+                                        "title": "Invert Control",
+                                        "x-name": "invert",
+                                        "x-hidden": false,
+                                        "type": [
+                                            "boolean",
+                                            "null"
+                                        ],
+                                        "x-required": false,
+                                        "description": "Inverse-acting control for RPM Regulate. By default the loop assumes more RPM raises this reading, so it speeds up when the reading is below setpoint. Turn this on when more RPM LOWERS the reading, so it speeds up when the reading is above setpoint.",
+                                        "default": false,
+                                        "x-position": 7
+                                    },
+                                    "setpoint_min": {
+                                        "title": "Setpoint Minimum",
+                                        "x-name": "setpoint_min",
+                                        "x-hidden": false,
+                                        "type": [
+                                            "number",
+                                            "null"
+                                        ],
+                                        "x-required": false,
+                                        "description": "Lower bound for this sensor's setpoint slider (in its units).",
+                                        "default": 0.0,
+                                        "x-position": 8
+                                    },
+                                    "setpoint_max": {
+                                        "title": "Setpoint Maximum",
+                                        "x-name": "setpoint_max",
+                                        "x-hidden": false,
+                                        "type": [
+                                            "number",
+                                            "null"
+                                        ],
+                                        "x-required": false,
+                                        "description": "Upper bound for this sensor's setpoint slider (in its units).",
+                                        "default": 1000.0,
+                                        "x-position": 9
+                                    },
+                                    "allow_rpm_control": {
+                                        "title": "Allow RPM Control",
+                                        "x-name": "allow_rpm_control",
+                                        "x-hidden": false,
+                                        "type": [
+                                            "boolean",
+                                            "null"
+                                        ],
+                                        "x-required": false,
+                                        "description": "Let this sensor be picked as the variable RPM Regulate holds. Off by default: driving engine speed from a reading is a deliberate choice, and a sensor that's only there to be watched (or to trigger a start/stop) shouldn't be offered for it.",
+                                        "default": false,
+                                        "x-position": 10
+                                    }
+                                },
+                                "additionalElements": true,
+                                "required": [
+                                    "app_name",
+                                    "tag_name"
+                                ],
+                                "x-collapsible": true,
+                                "x-defaultCollapsed": true
+                            },
+                            "remote_sensor_2": {
+                                "title": "Remote Sensor 2",
+                                "x-name": "remote_sensor_2",
+                                "x-hidden": false,
+                                "format": "doover-tag-reference",
+                                "type": [
+                                    "object",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "An external sensor read from another app. Leave the application blank to disable this slot.",
+                                "default": null,
+                                "x-position": 33,
+                                "properties": {
+                                    "reference_name": {
+                                        "title": "Reference Name",
+                                        "x-name": "reference_name",
+                                        "x-hidden": true,
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "x-required": false,
+                                        "description": "Local handle for this tag. Match this in your `RemoteTag` declaration.",
+                                        "default": "remote_sensor_1",
+                                        "x-position": 1
+                                    },
+                                    "agent_id": {
+                                        "title": "Agent",
+                                        "x-name": "agent_id",
+                                        "x-hidden": false,
+                                        "format": "doover-resource-device",
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "x-required": false,
+                                        "description": "Agent that owns the upstream tag. Leave blank to use this agent.",
+                                        "default": null,
+                                        "x-position": 2,
+                                        "pattern": "\\d+"
+                                    },
+                                    "app_name": {
+                                        "title": "Application",
+                                        "x-name": "app_name",
+                                        "x-hidden": false,
+                                        "format": "doover-application",
+                                        "type": "string",
+                                        "x-required": true,
+                                        "description": "Application that publishes the upstream tag.",
+                                        "x-position": 3
+                                    },
+                                    "tag_name": {
+                                        "title": "Tag Name",
+                                        "x-name": "tag_name",
+                                        "x-hidden": false,
+                                        "type": "string",
+                                        "x-required": true,
+                                        "description": "Name of the upstream tag within the chosen application.",
+                                        "x-position": 4
+                                    },
+                                    "sensor_label": {
+                                        "title": "Sensor Name",
+                                        "x-name": "sensor_label",
+                                        "x-hidden": false,
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "x-required": false,
+                                        "description": "Friendly label shown in the UI and the RPM Regulate picker.",
+                                        "default": "",
+                                        "x-position": 5
+                                    },
+                                    "sensor_units": {
+                                        "title": "Units",
+                                        "x-name": "sensor_units",
+                                        "x-hidden": false,
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "x-required": false,
+                                        "description": "Units shown next to the value (e.g. kPa). Optional.",
+                                        "default": "",
+                                        "x-position": 6
+                                    },
+                                    "invert": {
+                                        "title": "Invert Control",
+                                        "x-name": "invert",
+                                        "x-hidden": false,
+                                        "type": [
+                                            "boolean",
+                                            "null"
+                                        ],
+                                        "x-required": false,
+                                        "description": "Inverse-acting control for RPM Regulate. By default the loop assumes more RPM raises this reading, so it speeds up when the reading is below setpoint. Turn this on when more RPM LOWERS the reading, so it speeds up when the reading is above setpoint.",
+                                        "default": false,
+                                        "x-position": 7
+                                    },
+                                    "setpoint_min": {
+                                        "title": "Setpoint Minimum",
+                                        "x-name": "setpoint_min",
+                                        "x-hidden": false,
+                                        "type": [
+                                            "number",
+                                            "null"
+                                        ],
+                                        "x-required": false,
+                                        "description": "Lower bound for this sensor's setpoint slider (in its units).",
+                                        "default": 0.0,
+                                        "x-position": 8
+                                    },
+                                    "setpoint_max": {
+                                        "title": "Setpoint Maximum",
+                                        "x-name": "setpoint_max",
+                                        "x-hidden": false,
+                                        "type": [
+                                            "number",
+                                            "null"
+                                        ],
+                                        "x-required": false,
+                                        "description": "Upper bound for this sensor's setpoint slider (in its units).",
+                                        "default": 1000.0,
+                                        "x-position": 9
+                                    },
+                                    "allow_rpm_control": {
+                                        "title": "Allow RPM Control",
+                                        "x-name": "allow_rpm_control",
+                                        "x-hidden": false,
+                                        "type": [
+                                            "boolean",
+                                            "null"
+                                        ],
+                                        "x-required": false,
+                                        "description": "Let this sensor be picked as the variable RPM Regulate holds. Off by default: driving engine speed from a reading is a deliberate choice, and a sensor that's only there to be watched (or to trigger a start/stop) shouldn't be offered for it.",
+                                        "default": false,
+                                        "x-position": 10
+                                    }
+                                },
+                                "additionalElements": true,
+                                "required": [
+                                    "app_name",
+                                    "tag_name"
+                                ],
+                                "x-collapsible": true,
+                                "x-defaultCollapsed": true
+                            },
+                            "remote_sensor_3": {
+                                "title": "Remote Sensor 3",
+                                "x-name": "remote_sensor_3",
+                                "x-hidden": false,
+                                "format": "doover-tag-reference",
+                                "type": [
+                                    "object",
+                                    "null"
+                                ],
+                                "x-required": false,
+                                "description": "An external sensor read from another app. Leave the application blank to disable this slot.",
+                                "default": null,
+                                "x-position": 34,
+                                "properties": {
+                                    "reference_name": {
+                                        "title": "Reference Name",
+                                        "x-name": "reference_name",
+                                        "x-hidden": true,
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "x-required": false,
+                                        "description": "Local handle for this tag. Match this in your `RemoteTag` declaration.",
+                                        "default": "remote_sensor_2",
+                                        "x-position": 1
+                                    },
+                                    "agent_id": {
+                                        "title": "Agent",
+                                        "x-name": "agent_id",
+                                        "x-hidden": false,
+                                        "format": "doover-resource-device",
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "x-required": false,
+                                        "description": "Agent that owns the upstream tag. Leave blank to use this agent.",
+                                        "default": null,
+                                        "x-position": 2,
+                                        "pattern": "\\d+"
+                                    },
+                                    "app_name": {
+                                        "title": "Application",
+                                        "x-name": "app_name",
+                                        "x-hidden": false,
+                                        "format": "doover-application",
+                                        "type": "string",
+                                        "x-required": true,
+                                        "description": "Application that publishes the upstream tag.",
+                                        "x-position": 3
+                                    },
+                                    "tag_name": {
+                                        "title": "Tag Name",
+                                        "x-name": "tag_name",
+                                        "x-hidden": false,
+                                        "type": "string",
+                                        "x-required": true,
+                                        "description": "Name of the upstream tag within the chosen application.",
+                                        "x-position": 4
+                                    },
+                                    "sensor_label": {
+                                        "title": "Sensor Name",
+                                        "x-name": "sensor_label",
+                                        "x-hidden": false,
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "x-required": false,
+                                        "description": "Friendly label shown in the UI and the RPM Regulate picker.",
+                                        "default": "",
+                                        "x-position": 5
+                                    },
+                                    "sensor_units": {
+                                        "title": "Units",
+                                        "x-name": "sensor_units",
+                                        "x-hidden": false,
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "x-required": false,
+                                        "description": "Units shown next to the value (e.g. kPa). Optional.",
+                                        "default": "",
+                                        "x-position": 6
+                                    },
+                                    "invert": {
+                                        "title": "Invert Control",
+                                        "x-name": "invert",
+                                        "x-hidden": false,
+                                        "type": [
+                                            "boolean",
+                                            "null"
+                                        ],
+                                        "x-required": false,
+                                        "description": "Inverse-acting control for RPM Regulate. By default the loop assumes more RPM raises this reading, so it speeds up when the reading is below setpoint. Turn this on when more RPM LOWERS the reading, so it speeds up when the reading is above setpoint.",
+                                        "default": false,
+                                        "x-position": 7
+                                    },
+                                    "setpoint_min": {
+                                        "title": "Setpoint Minimum",
+                                        "x-name": "setpoint_min",
+                                        "x-hidden": false,
+                                        "type": [
+                                            "number",
+                                            "null"
+                                        ],
+                                        "x-required": false,
+                                        "description": "Lower bound for this sensor's setpoint slider (in its units).",
+                                        "default": 0.0,
+                                        "x-position": 8
+                                    },
+                                    "setpoint_max": {
+                                        "title": "Setpoint Maximum",
+                                        "x-name": "setpoint_max",
+                                        "x-hidden": false,
+                                        "type": [
+                                            "number",
+                                            "null"
+                                        ],
+                                        "x-required": false,
+                                        "description": "Upper bound for this sensor's setpoint slider (in its units).",
+                                        "default": 1000.0,
+                                        "x-position": 9
+                                    },
+                                    "allow_rpm_control": {
+                                        "title": "Allow RPM Control",
+                                        "x-name": "allow_rpm_control",
+                                        "x-hidden": false,
+                                        "type": [
+                                            "boolean",
+                                            "null"
+                                        ],
+                                        "x-required": false,
+                                        "description": "Let this sensor be picked as the variable RPM Regulate holds. Off by default: driving engine speed from a reading is a deliberate choice, and a sensor that's only there to be watched (or to trigger a start/stop) shouldn't be offered for it.",
+                                        "default": false,
+                                        "x-position": 10
+                                    }
+                                },
+                                "additionalElements": true,
+                                "required": [
+                                    "app_name",
+                                    "tag_name"
+                                ],
+                                "x-collapsible": true,
+                                "x-defaultCollapsed": true
+                            }
+                        }
+                    }
+                }
             ]
+        },
+        "ui_schema": {
+            "displayString": "$tag.app().status_string:string:\"DSE (no comms)\"",
+            "hidden": "$config.app().interpreter_hidden:boolean:false",
+            "fullWidth": "$config.app().interpreter_full_width:boolean:false",
+            "position": "$config.app().dv_app_position:number:100",
+            "icon": null,
+            "colour": null,
+            "defaultOpen": "$config.app().dv_app_default_open:boolean",
+            "type": "uiApplication",
+            "name": "$config.app().APP_KEY",
+            "children": {
+                "rpm": {
+                    "name": "rpm",
+                    "type": "uiVariable",
+                    "displayString": "Engine RPM",
+                    "showActivity": true,
+                    "form": "radialGauge",
+                    "position": 51,
+                    "hidden": false,
+                    "units": "rpm",
+                    "varType": "float",
+                    "currentValue": "$tag.app().engine_rpm:number:null",
+                    "decPrecision": 0,
+                    "ranges": [
+                        {
+                            "min": 0,
+                            "max": 800,
+                            "colour": "blue",
+                            "show_on_graph": true,
+                            "label": "Idle"
+                        },
+                        {
+                            "min": 800,
+                            "max": 2000,
+                            "colour": "green",
+                            "show_on_graph": true,
+                            "label": "Run"
+                        },
+                        {
+                            "min": 2000,
+                            "max": 2100,
+                            "colour": "yellow",
+                            "show_on_graph": true,
+                            "label": "High"
+                        }
+                    ],
+                    "live": true
+                },
+                "engine_load": {
+                    "name": "engine_load",
+                    "type": "uiVariable",
+                    "displayString": "Engine Load",
+                    "showActivity": true,
+                    "position": 52,
+                    "hidden": false,
+                    "units": "%",
+                    "varType": "float",
+                    "currentValue": "$tag.app().engine_load_pct:number:null",
+                    "decPrecision": 0,
+                    "ranges": [
+                        {
+                            "min": 0,
+                            "max": 15,
+                            "colour": "blue",
+                            "show_on_graph": true
+                        },
+                        {
+                            "min": 15,
+                            "max": 100,
+                            "colour": "green",
+                            "show_on_graph": true
+                        }
+                    ],
+                    "live": true
+                },
+                "coolant_temp": {
+                    "name": "coolant_temp",
+                    "type": "uiVariable",
+                    "displayString": "Coolant Temp",
+                    "showActivity": true,
+                    "position": 53,
+                    "hidden": false,
+                    "units": "\u00b0C",
+                    "varType": "float",
+                    "currentValue": "$tag.app().coolant_temp_c:number:null",
+                    "decPrecision": 0,
+                    "ranges": [
+                        {
+                            "min": 0,
+                            "max": 50,
+                            "colour": "blue",
+                            "show_on_graph": true
+                        },
+                        {
+                            "min": 50,
+                            "max": 90,
+                            "colour": "green",
+                            "show_on_graph": true
+                        },
+                        {
+                            "min": 90,
+                            "max": 120,
+                            "colour": "yellow",
+                            "show_on_graph": true
+                        }
+                    ],
+                    "live": true
+                },
+                "fuel_rate": {
+                    "name": "fuel_rate",
+                    "type": "uiVariable",
+                    "displayString": "Fuel Rate",
+                    "showActivity": true,
+                    "position": 54,
+                    "hidden": false,
+                    "units": "L/hr",
+                    "varType": "float",
+                    "currentValue": "$tag.app().fuel_rate_lph:number:null",
+                    "decPrecision": 1,
+                    "live": true
+                },
+                "sys_volts": {
+                    "name": "sys_volts",
+                    "type": "uiVariable",
+                    "displayString": "System Voltage",
+                    "showActivity": true,
+                    "position": 55,
+                    "hidden": false,
+                    "units": "V",
+                    "varType": "float",
+                    "currentValue": "$tag.app().battery_voltage:number:null",
+                    "decPrecision": 1,
+                    "live": true
+                },
+                "engine_hours": {
+                    "name": "engine_hours",
+                    "type": "uiVariable",
+                    "displayString": "Engine Hours",
+                    "showActivity": true,
+                    "position": 56,
+                    "hidden": false,
+                    "units": "hrs",
+                    "varType": "float",
+                    "currentValue": "$tag.app().total_engine_hours:number:null",
+                    "decPrecision": 1,
+                    "live": true
+                },
+                "control": {
+                    "name": "control",
+                    "type": "uiTabs",
+                    "displayString": "Pump Control",
+                    "showActivity": true,
+                    "position": 95,
+                    "hidden": false,
+                    "children": {
+                        "start_tab": {
+                            "name": "start_tab",
+                            "type": "uiContainer",
+                            "displayString": "Start",
+                            "showActivity": true,
+                            "position": 62,
+                            "hidden": false,
+                            "children": {
+                                "start_now": {
+                                    "name": "start_now",
+                                    "type": "uiButton",
+                                    "displayString": "Start Now",
+                                    "position": 1,
+                                    "hidden": false,
+                                    "colour": "green",
+                                    "currentValue": "$cmds.app().start_now",
+                                    "requiresConfirm": {
+                                        "title": "Start the engine?",
+                                        "warningReason": "The beacon and horn will sound a pre-start warning, then the engine will crank automatically. Make sure everyone is clear of the engine and pump.",
+                                        "helpText": "Begins the auto-start sequence: pre-start warning (beacon + horn) \u2192 the app resets any latched alarm and puts the panel into Auto \u2192 remote START. There is no way to start without the warning."
+                                    },
+                                    "commandTimeout": 5000,
+                                    "commandPendingTimeout": 120000,
+                                    "commandRetryTimeout": 300000,
+                                    "disabled": "$tag.app().start_now_disabled:boolean:true"
+                                },
+                                "start_control_mode": {
+                                    "name": "start_control_mode",
+                                    "type": "uiSelect",
+                                    "displayString": "Start Control",
+                                    "position": 2,
+                                    "hidden": false,
+                                    "currentValue": "$cmds.app().start_control_mode",
+                                    "commandTimeout": 5000,
+                                    "commandPendingTimeout": 120000,
+                                    "commandRetryTimeout": 300000,
+                                    "options": {
+                                        "manual": {
+                                            "name": "manual",
+                                            "displayString": "Manual",
+                                            "type": "uiElement"
+                                        },
+                                        "sensor": {
+                                            "name": "sensor",
+                                            "displayString": "Sensor",
+                                            "type": "uiElement"
+                                        },
+                                        "timer": {
+                                            "name": "timer",
+                                            "displayString": "Timer",
+                                            "type": "uiElement"
+                                        }
+                                    }
+                                },
+                                "start_sensor": {
+                                    "name": "start_sensor",
+                                    "type": "uiContainer",
+                                    "displayString": "Start On Sensor",
+                                    "showActivity": true,
+                                    "position": 3,
+                                    "hidden": "$tag.app().start_sensor_hidden:boolean:true",
+                                    "children": {}
+                                },
+                                "start_timer_at": {
+                                    "name": "start_timer_at",
+                                    "type": "uiDatetimeInput",
+                                    "displayString": "Start At",
+                                    "position": 4,
+                                    "hidden": "$tag.app().start_timer_hidden:boolean:true",
+                                    "currentValue": "$cmds.app().start_timer_at::None",
+                                    "commandTimeout": 5000,
+                                    "commandPendingTimeout": 120000,
+                                    "commandRetryTimeout": 300000,
+                                    "default": null,
+                                    "pickers": [
+                                        "date",
+                                        "time"
+                                    ],
+                                    "direction": "future"
+                                },
+                                "cancel_start": {
+                                    "name": "cancel_start",
+                                    "type": "uiButton",
+                                    "displayString": "Cancel Start",
+                                    "position": 6,
+                                    "hidden": "$tag.app().cancel_btn_hidden:boolean:true",
+                                    "currentValue": "$cmds.app().cancel_start",
+                                    "requiresConfirm": {
+                                        "title": "Cancel the pre-start warning?",
+                                        "helpText": "Aborts the warning before the engine is commanded to start. The beacon and horn switch off and nothing is sent to the panel."
+                                    },
+                                    "commandTimeout": 5000,
+                                    "commandPendingTimeout": 120000,
+                                    "commandRetryTimeout": 300000
+                                }
+                            }
+                        },
+                        "rpm_tab": {
+                            "name": "rpm_tab",
+                            "type": "uiContainer",
+                            "displayString": "RPM",
+                            "showActivity": true,
+                            "position": 67,
+                            "hidden": false,
+                            "children": {
+                                "rpm_status": {
+                                    "name": "rpm_status",
+                                    "type": "uiVariable",
+                                    "displayString": "RPM Control Status",
+                                    "showActivity": true,
+                                    "position": 2,
+                                    "hidden": "$tag.app().manual_mode_hidden:boolean:true",
+                                    "varType": "string",
+                                    "currentValue": "$tag.app().rpm_status:string:\"\"",
+                                    "live": true
+                                },
+                                "run_mode_status_text": {
+                                    "name": "run_mode_status_text",
+                                    "type": "uiVariable",
+                                    "displayString": "Mode Status",
+                                    "showActivity": true,
+                                    "position": 3,
+                                    "hidden": "$tag.app().run_mode_status_hidden:boolean:false",
+                                    "varType": "string",
+                                    "currentValue": "$tag.app().run_mode_status:string:\"\"",
+                                    "live": true
+                                },
+                                "regulate_plot_group": {
+                                    "name": "regulate_plot_group",
+                                    "type": "uiSubmodule",
+                                    "displayString": "Regulate Plot",
+                                    "showActivity": true,
+                                    "position": 90,
+                                    "hidden": "$tag.app().regulate_plot_hidden:boolean:true",
+                                    "children": {
+                                        "regulate_plot": {
+                                            "name": "regulate_plot",
+                                            "type": "uiMultiPlot",
+                                            "displayString": "Regulate Plot",
+                                            "showActivity": true,
+                                            "position": 65,
+                                            "hidden": false,
+                                            "series": {
+                                                "sensor_value": {
+                                                    "name": "sensor_value",
+                                                    "displayString": "Sensor Value",
+                                                    "dataType": "number",
+                                                    "lookup": "$tag.app().regulate_measured:number:null",
+                                                    "active": true,
+                                                    "sharedAxis": "sensor",
+                                                    "live": true
+                                                },
+                                                "setpoint": {
+                                                    "name": "setpoint",
+                                                    "displayString": "Setpoint",
+                                                    "dataType": "number",
+                                                    "lookup": "$tag.app().regulate_setpoint_active:number:null",
+                                                    "active": true,
+                                                    "sharedAxis": "sensor",
+                                                    "live": true
+                                                },
+                                                "error": {
+                                                    "name": "error",
+                                                    "displayString": "Error",
+                                                    "dataType": "number",
+                                                    "lookup": "$tag.app().regulate_error:number:null",
+                                                    "active": false,
+                                                    "sharedAxis": "sensor",
+                                                    "live": true
+                                                },
+                                                "commanded_rpm": {
+                                                    "name": "commanded_rpm",
+                                                    "displayString": "Commanded RPM",
+                                                    "dataType": "number",
+                                                    "lookup": "$tag.app().regulate_output_rpm:number:null",
+                                                    "active": false,
+                                                    "units": "RPM",
+                                                    "live": true
+                                                }
+                                            },
+                                            "title": "Regulate Plot"
+                                        }
+                                    },
+                                    "defaultOpen": false
+                                }
+                            }
+                        },
+                        "stop_tab": {
+                            "name": "stop_tab",
+                            "type": "uiContainer",
+                            "displayString": "Stop",
+                            "showActivity": true,
+                            "position": 72,
+                            "hidden": false,
+                            "children": {
+                                "stop_now": {
+                                    "name": "stop_now",
+                                    "type": "uiButton",
+                                    "displayString": "Stop Now",
+                                    "position": 1,
+                                    "hidden": false,
+                                    "colour": "red",
+                                    "currentValue": "$cmds.app().stop_now",
+                                    "requiresConfirm": {
+                                        "title": "Stop the engine?",
+                                        "warningReason": "This will shut the engine down. Anyone relying on flow downstream will lose it.",
+                                        "helpText": "Withdraws the remote start request. The panel runs its own return delay and cooling-down period, then stops, and stays in Auto so it can be restarted from here."
+                                    },
+                                    "commandTimeout": 5000,
+                                    "commandPendingTimeout": 120000,
+                                    "commandRetryTimeout": 300000,
+                                    "disabled": "$tag.app().stop_now_disabled:boolean:true"
+                                },
+                                "stop_control_mode": {
+                                    "name": "stop_control_mode",
+                                    "type": "uiSelect",
+                                    "displayString": "Stop Control",
+                                    "position": 2,
+                                    "hidden": false,
+                                    "currentValue": "$cmds.app().stop_control_mode",
+                                    "commandTimeout": 5000,
+                                    "commandPendingTimeout": 120000,
+                                    "commandRetryTimeout": 300000,
+                                    "options": {
+                                        "manual": {
+                                            "name": "manual",
+                                            "displayString": "Manual",
+                                            "type": "uiElement"
+                                        },
+                                        "sensor": {
+                                            "name": "sensor",
+                                            "displayString": "Sensor",
+                                            "type": "uiElement"
+                                        },
+                                        "timer": {
+                                            "name": "timer",
+                                            "displayString": "Timer",
+                                            "type": "uiElement"
+                                        }
+                                    }
+                                },
+                                "stop_sensor": {
+                                    "name": "stop_sensor",
+                                    "type": "uiContainer",
+                                    "displayString": "Stop On Sensor",
+                                    "showActivity": true,
+                                    "position": 3,
+                                    "hidden": "$tag.app().stop_sensor_hidden:boolean:true",
+                                    "children": {}
+                                },
+                                "stop_timer_at": {
+                                    "name": "stop_timer_at",
+                                    "type": "uiDatetimeInput",
+                                    "displayString": "Stop At",
+                                    "position": 4,
+                                    "hidden": "$tag.app().stop_timer_hidden:boolean:true",
+                                    "currentValue": "$cmds.app().stop_timer_at::None",
+                                    "commandTimeout": 5000,
+                                    "commandPendingTimeout": 120000,
+                                    "commandRetryTimeout": 300000,
+                                    "default": null,
+                                    "pickers": [
+                                        "date",
+                                        "time"
+                                    ],
+                                    "direction": "future"
+                                }
+                            }
+                        }
+                    }
+                },
+                "manual_mode_warning": {
+                    "name": "manual_mode_warning",
+                    "type": "uiWarningIndicator",
+                    "displayString": "Panel is in Manual \u2014 no remote engine control",
+                    "position": 90,
+                    "hidden": "$tag.app().manual_mode_hidden:boolean:true",
+                    "currentValue": "$cmds.app().manual_mode_warning",
+                    "can_cancel": false
+                },
+                "auto_start_fault": {
+                    "name": "auto_start_fault",
+                    "type": "uiWarningIndicator",
+                    "displayString": "$tag.app().auto_start_fault:string:\"\"",
+                    "position": 91,
+                    "hidden": "$tag.app().auto_start_fault_hidden:boolean:true",
+                    "currentValue": "$cmds.app().auto_start_fault",
+                    "can_cancel": false
+                },
+                "run_reason": {
+                    "name": "run_reason",
+                    "type": "uiVariable",
+                    "displayString": "Run Reason",
+                    "showActivity": true,
+                    "position": 92,
+                    "hidden": "$tag.app().run_reason_hidden:boolean:true",
+                    "varType": "string",
+                    "currentValue": "$tag.app().run_request_reason:string:\"\"",
+                    "live": true
+                },
+                "active_alarms": {
+                    "name": "active_alarms",
+                    "type": "uiVariable",
+                    "displayString": "Active Alarms",
+                    "showActivity": true,
+                    "position": 56,
+                    "hidden": false,
+                    "varType": "string",
+                    "currentValue": "$tag.app().alarm_summary:string:\"\"",
+                    "live": true
+                },
+                "details": {
+                    "name": "details",
+                    "type": "uiSubmodule",
+                    "displayString": "Details",
+                    "showActivity": true,
+                    "position": 150,
+                    "hidden": true,
+                    "children": {
+                        "engine": {
+                            "name": "engine",
+                            "type": "uiSubmodule",
+                            "displayString": "Engine",
+                            "showActivity": true,
+                            "position": 89,
+                            "hidden": false,
+                            "children": {
+                                "oil_pressure": {
+                                    "name": "oil_pressure",
+                                    "type": "uiVariable",
+                                    "displayString": "Oil Pressure",
+                                    "showActivity": true,
+                                    "form": "linearGauge",
+                                    "position": 78,
+                                    "hidden": false,
+                                    "units": "kPa",
+                                    "varType": "float",
+                                    "currentValue": "$tag.app().oil_pressure_kpa:number:null",
+                                    "decPrecision": 0,
+                                    "ranges": [
+                                        {
+                                            "min": 0,
+                                            "max": 150,
+                                            "colour": "red",
+                                            "show_on_graph": true,
+                                            "label": "Low"
+                                        },
+                                        {
+                                            "min": 150,
+                                            "max": 600,
+                                            "colour": "green",
+                                            "show_on_graph": true,
+                                            "label": "Normal"
+                                        },
+                                        {
+                                            "min": 600,
+                                            "max": 1000,
+                                            "colour": "yellow",
+                                            "show_on_graph": true,
+                                            "label": "High"
+                                        }
+                                    ],
+                                    "live": true
+                                },
+                                "oil_temp": {
+                                    "name": "oil_temp",
+                                    "type": "uiVariable",
+                                    "displayString": "Oil Temp",
+                                    "showActivity": true,
+                                    "form": "linearGauge",
+                                    "position": 79,
+                                    "hidden": false,
+                                    "units": "\u00b0C",
+                                    "varType": "float",
+                                    "currentValue": "$tag.app().oil_temp_c:number:null",
+                                    "decPrecision": 0,
+                                    "ranges": [
+                                        {
+                                            "min": -40,
+                                            "max": 60,
+                                            "colour": "blue",
+                                            "show_on_graph": true,
+                                            "label": "Cold"
+                                        },
+                                        {
+                                            "min": 60,
+                                            "max": 110,
+                                            "colour": "green",
+                                            "show_on_graph": true,
+                                            "label": "Normal"
+                                        },
+                                        {
+                                            "min": 110,
+                                            "max": 135,
+                                            "colour": "yellow",
+                                            "show_on_graph": true,
+                                            "label": "Hot"
+                                        },
+                                        {
+                                            "min": 135,
+                                            "max": 200,
+                                            "colour": "red",
+                                            "show_on_graph": true,
+                                            "label": "Critical"
+                                        }
+                                    ],
+                                    "live": true
+                                },
+                                "coolant_level": {
+                                    "name": "coolant_level",
+                                    "type": "uiVariable",
+                                    "displayString": "Coolant Level",
+                                    "showActivity": true,
+                                    "form": "linearGauge",
+                                    "position": 80,
+                                    "hidden": false,
+                                    "units": "%",
+                                    "varType": "float",
+                                    "currentValue": "$tag.app().coolant_level_pct:number:null",
+                                    "decPrecision": 0,
+                                    "ranges": [
+                                        {
+                                            "min": 0,
+                                            "max": 20,
+                                            "colour": "red",
+                                            "show_on_graph": true,
+                                            "label": "Low"
+                                        },
+                                        {
+                                            "min": 20,
+                                            "max": 100,
+                                            "colour": "green",
+                                            "show_on_graph": true,
+                                            "label": "OK"
+                                        }
+                                    ],
+                                    "live": true
+                                },
+                                "oil_level": {
+                                    "name": "oil_level",
+                                    "type": "uiVariable",
+                                    "displayString": "Oil Level",
+                                    "showActivity": true,
+                                    "position": 81,
+                                    "hidden": false,
+                                    "units": "%",
+                                    "varType": "float",
+                                    "currentValue": "$tag.app().oil_level_pct:number:null",
+                                    "decPrecision": 0,
+                                    "live": true
+                                },
+                                "fuel_level": {
+                                    "name": "fuel_level",
+                                    "type": "uiVariable",
+                                    "displayString": "Fuel Level",
+                                    "showActivity": true,
+                                    "form": "linearGauge",
+                                    "position": 82,
+                                    "hidden": false,
+                                    "units": "%",
+                                    "varType": "float",
+                                    "currentValue": "$tag.app().fuel_level_pct:number:null",
+                                    "decPrecision": 0,
+                                    "ranges": [
+                                        {
+                                            "min": 0,
+                                            "max": 15,
+                                            "colour": "red",
+                                            "show_on_graph": true,
+                                            "label": "Low"
+                                        },
+                                        {
+                                            "min": 15,
+                                            "max": 100,
+                                            "colour": "green",
+                                            "show_on_graph": true,
+                                            "label": "OK"
+                                        }
+                                    ],
+                                    "live": true
+                                },
+                                "fuel_used": {
+                                    "name": "fuel_used",
+                                    "type": "uiVariable",
+                                    "displayString": "Fuel Used",
+                                    "showActivity": true,
+                                    "position": 83,
+                                    "hidden": false,
+                                    "units": "L",
+                                    "varType": "float",
+                                    "currentValue": "$tag.app().fuel_used_l:number:null",
+                                    "decPrecision": 0,
+                                    "live": true
+                                },
+                                "intake_temp": {
+                                    "name": "intake_temp",
+                                    "type": "uiVariable",
+                                    "displayString": "Intake Manifold Temp",
+                                    "showActivity": true,
+                                    "position": 84,
+                                    "hidden": false,
+                                    "units": "\u00b0C",
+                                    "varType": "float",
+                                    "currentValue": "$tag.app().intake_manifold_temp_c:number:null",
+                                    "decPrecision": 0,
+                                    "live": true
+                                },
+                                "exhaust_temp": {
+                                    "name": "exhaust_temp",
+                                    "type": "uiVariable",
+                                    "displayString": "Exhaust Temp",
+                                    "showActivity": true,
+                                    "position": 85,
+                                    "hidden": false,
+                                    "units": "\u00b0C",
+                                    "varType": "float",
+                                    "currentValue": "$tag.app().exhaust_temp_c:number:null",
+                                    "decPrecision": 0,
+                                    "live": true
+                                },
+                                "boost_pressure": {
+                                    "name": "boost_pressure",
+                                    "type": "uiVariable",
+                                    "displayString": "Boost Pressure",
+                                    "showActivity": true,
+                                    "position": 86,
+                                    "hidden": false,
+                                    "units": "kPa",
+                                    "varType": "float",
+                                    "currentValue": "$tag.app().boost_pressure_kpa:number:null",
+                                    "decPrecision": 0,
+                                    "live": true
+                                },
+                                "alternator_voltage": {
+                                    "name": "alternator_voltage",
+                                    "type": "uiVariable",
+                                    "displayString": "Alternator Voltage",
+                                    "showActivity": true,
+                                    "form": "linearGauge",
+                                    "position": 87,
+                                    "hidden": false,
+                                    "units": "V",
+                                    "varType": "float",
+                                    "currentValue": "$tag.app().alternator_voltage:number:null",
+                                    "decPrecision": 1,
+                                    "ranges": [
+                                        {
+                                            "min": 0,
+                                            "max": 12.5,
+                                            "colour": "blue",
+                                            "show_on_graph": true,
+                                            "label": "Off"
+                                        },
+                                        {
+                                            "min": 12.5,
+                                            "max": 15,
+                                            "colour": "green",
+                                            "show_on_graph": true,
+                                            "label": "Charging"
+                                        },
+                                        {
+                                            "min": 15,
+                                            "max": 32,
+                                            "colour": "yellow",
+                                            "show_on_graph": true,
+                                            "label": "High"
+                                        }
+                                    ],
+                                    "live": true
+                                },
+                                "number_of_starts": {
+                                    "name": "number_of_starts",
+                                    "type": "uiVariable",
+                                    "displayString": "Number of Starts",
+                                    "showActivity": true,
+                                    "position": 88,
+                                    "hidden": false,
+                                    "varType": "float",
+                                    "currentValue": "$tag.app().number_of_starts:number:null",
+                                    "decPrecision": 0,
+                                    "live": true
+                                }
+                            }
+                        },
+                        "flex_sensors": {
+                            "name": "flex_sensors",
+                            "type": "uiSubmodule",
+                            "displayString": "Panel Sensors",
+                            "showActivity": true,
+                            "position": 90,
+                            "hidden": false,
+                            "children": {}
+                        },
+                        "speed_control": {
+                            "name": "speed_control",
+                            "type": "uiSubmodule",
+                            "displayString": "Speed Control",
+                            "showActivity": true,
+                            "position": 99,
+                            "hidden": false,
+                            "children": {
+                                "target_speed": {
+                                    "name": "target_speed",
+                                    "type": "uiVariable",
+                                    "displayString": "Panel Target Speed",
+                                    "showActivity": true,
+                                    "position": 91,
+                                    "hidden": false,
+                                    "units": "rpm",
+                                    "varType": "float",
+                                    "currentValue": "$tag.app().target_speed_rpm:number:null",
+                                    "decPrecision": 0,
+                                    "live": true
+                                },
+                                "maintain_value_text": {
+                                    "name": "maintain_value_text",
+                                    "type": "uiVariable",
+                                    "displayString": "Maintain Value",
+                                    "showActivity": true,
+                                    "position": 92,
+                                    "hidden": "$tag.app().maintain_hidden:boolean:true",
+                                    "varType": "string",
+                                    "currentValue": "$tag.app().maintain_status:string:\"\"",
+                                    "live": true
+                                },
+                                "maintain_value": {
+                                    "name": "maintain_value",
+                                    "type": "uiVariable",
+                                    "displayString": "Maintain Value Reading",
+                                    "showActivity": true,
+                                    "position": 93,
+                                    "hidden": "$tag.app().maintain_hidden:boolean:true",
+                                    "varType": "float",
+                                    "currentValue": "$tag.app().maintain_value:number:null",
+                                    "decPrecision": 2,
+                                    "live": true
+                                },
+                                "maintain_setpoint": {
+                                    "name": "maintain_setpoint",
+                                    "type": "uiVariable",
+                                    "displayString": "Maintain Value Set Point",
+                                    "showActivity": true,
+                                    "position": 94,
+                                    "hidden": "$tag.app().maintain_hidden:boolean:true",
+                                    "varType": "float",
+                                    "currentValue": "$tag.app().maintain_setpoint:number:null",
+                                    "decPrecision": 2,
+                                    "live": true
+                                },
+                                "maintain_source": {
+                                    "name": "maintain_source",
+                                    "type": "uiVariable",
+                                    "displayString": "Set Point Source",
+                                    "showActivity": true,
+                                    "position": 95,
+                                    "hidden": "$tag.app().maintain_hidden:boolean:true",
+                                    "varType": "string",
+                                    "currentValue": "$tag.app().maintain_source:string:\"\"",
+                                    "live": true
+                                },
+                                "maintain_p_gain": {
+                                    "name": "maintain_p_gain",
+                                    "type": "uiVariable",
+                                    "displayString": "P Gain",
+                                    "showActivity": true,
+                                    "position": 96,
+                                    "hidden": "$tag.app().maintain_hidden:boolean:true",
+                                    "varType": "float",
+                                    "currentValue": "$tag.app().maintain_p_gain:number:null",
+                                    "decPrecision": 1,
+                                    "live": true
+                                },
+                                "maintain_i_gain": {
+                                    "name": "maintain_i_gain",
+                                    "type": "uiVariable",
+                                    "displayString": "I Gain",
+                                    "showActivity": true,
+                                    "position": 97,
+                                    "hidden": "$tag.app().maintain_hidden:boolean:true",
+                                    "varType": "float",
+                                    "currentValue": "$tag.app().maintain_i_gain:number:null",
+                                    "decPrecision": 1,
+                                    "live": true
+                                },
+                                "maintain_d_gain": {
+                                    "name": "maintain_d_gain",
+                                    "type": "uiVariable",
+                                    "displayString": "D Gain",
+                                    "showActivity": true,
+                                    "position": 98,
+                                    "hidden": "$tag.app().maintain_hidden:boolean:true",
+                                    "varType": "float",
+                                    "currentValue": "$tag.app().maintain_d_gain:number:null",
+                                    "decPrecision": 1,
+                                    "live": true
+                                }
+                            }
+                        },
+                        "diagnostics": {
+                            "name": "diagnostics",
+                            "type": "uiSubmodule",
+                            "displayString": "Diagnostics",
+                            "showActivity": true,
+                            "position": 113,
+                            "hidden": false,
+                            "children": {
+                                "control_mode": {
+                                    "name": "control_mode",
+                                    "type": "uiVariable",
+                                    "displayString": "Panel Mode",
+                                    "showActivity": true,
+                                    "position": 100,
+                                    "hidden": false,
+                                    "varType": "string",
+                                    "currentValue": "$tag.app().control_mode:string:\"\"",
+                                    "live": true
+                                },
+                                "engine_state": {
+                                    "name": "engine_state",
+                                    "type": "uiVariable",
+                                    "displayString": "Engine State",
+                                    "showActivity": true,
+                                    "position": 101,
+                                    "hidden": false,
+                                    "varType": "string",
+                                    "currentValue": "$tag.app().engine_state:string:\"\"",
+                                    "live": true
+                                },
+                                "warming_up": {
+                                    "name": "warming_up",
+                                    "type": "uiVariable",
+                                    "displayString": "Warming Up",
+                                    "showActivity": true,
+                                    "position": 102,
+                                    "hidden": false,
+                                    "varType": "bool",
+                                    "currentValue": "$tag.app().is_warming_up:boolean:false",
+                                    "live": true
+                                },
+                                "cooling_down": {
+                                    "name": "cooling_down",
+                                    "type": "uiVariable",
+                                    "displayString": "Cooling Down",
+                                    "showActivity": true,
+                                    "position": 103,
+                                    "hidden": false,
+                                    "varType": "bool",
+                                    "currentValue": "$tag.app().is_cooling_down:boolean:false",
+                                    "live": true
+                                },
+                                "pump_power_on": {
+                                    "name": "pump_power_on",
+                                    "type": "uiVariable",
+                                    "displayString": "Panel Power Held On",
+                                    "showActivity": true,
+                                    "position": 104,
+                                    "hidden": false,
+                                    "varType": "bool",
+                                    "currentValue": "$tag.app().pump_power_on:boolean:false",
+                                    "live": true
+                                },
+                                "common_alarm": {
+                                    "name": "common_alarm",
+                                    "type": "uiVariable",
+                                    "displayString": "Common Alarm",
+                                    "showActivity": true,
+                                    "position": 105,
+                                    "hidden": false,
+                                    "varType": "bool",
+                                    "currentValue": "$tag.app().has_common_alarm:boolean:false",
+                                    "live": true
+                                },
+                                "has_warning": {
+                                    "name": "has_warning",
+                                    "type": "uiVariable",
+                                    "displayString": "Warning",
+                                    "showActivity": true,
+                                    "position": 106,
+                                    "hidden": false,
+                                    "varType": "bool",
+                                    "currentValue": "$tag.app().has_warning:boolean:false",
+                                    "live": true
+                                },
+                                "is_faulted": {
+                                    "name": "is_faulted",
+                                    "type": "uiVariable",
+                                    "displayString": "Shutdown / Locked Out",
+                                    "showActivity": true,
+                                    "position": 107,
+                                    "hidden": false,
+                                    "varType": "bool",
+                                    "currentValue": "$tag.app().is_faulted:boolean:false",
+                                    "live": true
+                                },
+                                "panel_locked": {
+                                    "name": "panel_locked",
+                                    "type": "uiVariable",
+                                    "displayString": "Panel Locked",
+                                    "showActivity": true,
+                                    "position": 108,
+                                    "hidden": false,
+                                    "varType": "bool",
+                                    "currentValue": "$tag.app().panel_locked:boolean:false",
+                                    "live": true
+                                },
+                                "alarm_count": {
+                                    "name": "alarm_count",
+                                    "type": "uiVariable",
+                                    "displayString": "Alarm Count",
+                                    "showActivity": true,
+                                    "position": 109,
+                                    "hidden": false,
+                                    "varType": "float",
+                                    "currentValue": "$tag.app().alarm_count:number:0",
+                                    "decPrecision": 0,
+                                    "live": true
+                                },
+                                "manual_run_time_remaining": {
+                                    "name": "manual_run_time_remaining",
+                                    "type": "uiVariable",
+                                    "displayString": "Manual Run Time Remaining",
+                                    "showActivity": true,
+                                    "position": 110,
+                                    "hidden": false,
+                                    "units": "s",
+                                    "varType": "float",
+                                    "currentValue": "$tag.app().manual_run_time_remaining_s:number:null",
+                                    "decPrecision": 0,
+                                    "live": true
+                                },
+                                "serial_number": {
+                                    "name": "serial_number",
+                                    "type": "uiVariable",
+                                    "displayString": "Serial Number",
+                                    "showActivity": true,
+                                    "position": 111,
+                                    "hidden": false,
+                                    "varType": "float",
+                                    "currentValue": "$tag.app().serial_number:number:0",
+                                    "decPrecision": 0,
+                                    "live": true
+                                },
+                                "model_number": {
+                                    "name": "model_number",
+                                    "type": "uiVariable",
+                                    "displayString": "Model Number",
+                                    "showActivity": true,
+                                    "position": 112,
+                                    "hidden": false,
+                                    "varType": "float",
+                                    "currentValue": "$tag.app().model_number:number:0",
+                                    "decPrecision": 0,
+                                    "live": true
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

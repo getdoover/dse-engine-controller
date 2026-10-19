@@ -3,22 +3,42 @@ services:
     image: spaneng/doover_device_agent:apps
     network_mode: host
 
-  sample_simulator:
-    build: ./sample
+#  # Native analog inputs (4-20 mA / 0-10 V) are read through the platform
+#  # interface, which isn't part of this stack by default — without it the app
+#  # logs an analog read failure each loop and the inputs read as faulted.
+#  # Uncomment to run the platform interface's simulator driver, which serves a
+#  # web UI on :8080 for setting AI values by hand. Needed for the Pressure
+#  # Control run mode and the sensor transition out of it to do anything.
+#  platform_interface:
+#    image: spaneng/doover_platform_iface
+#    network_mode: host
+#    restart: unless-stopped
+#    command: ["--type", "sim"]
+#    environment:
+#      - APP_KEY=platform_interface
+
+  # A DSE E400 speaking GenComm over Modbus TCP (the real module is RTU over
+  # RS485; the app's modbus_config in app_config.json points at this instead).
+  # Drive it through its sim_* tags — see simulators/dse/main.py.
+  dse_sim:
+    build: ./dse
     network_mode: host
     restart: unless-stopped
     depends_on:
       - device_agent
     environment:
-      - APP_KEY=sim_app_key
+      - APP_KEY=dse_sim
+      - MODBUS_HOST=0.0.0.0
+      - MODBUS_PORT=5020
+      - MODBUS_SLAVE_ID=10
 
-  sample_application:
+  dse_app:
     build: ../
     network_mode: host
     restart: unless-stopped
     depends_on:
       - device_agent
-      - sample_simulator
+      - dse_sim
     environment:
-      - APP_KEY=test_app_key
+      - APP_KEY=dse_engine_controller_1
       - CONFIG_FP=/app/simulators/app_config.json
